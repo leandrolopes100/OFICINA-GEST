@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% load oficina_tags %}
+{% block title %}Lançamentos Financeiros{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-cash-stack text-primary"></i> Lançamentos Financeiros</h4>
+  <div>
+    <a href="{% url 'financeiro:fluxo_caixa' %}" class="btn btn-outline-primary btn-sm me-1">
+      <i class="bi bi-graph-up-arrow"></i> Fluxo de Caixa
+    </a>
+    <a href="{% url 'financeiro:create' %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-circle"></i> Novo Lançamento
+    </a>
+  </div>
+</div>
+
+<!-- Resumo -->
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="card border-start border-success border-4">
+      <div class="card-body py-2">
+        <div class="text-muted small">Total Receitas (pagas)</div>
+        <div class="fw-bold text-success fs-5">{{ total_receitas|currency }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-start border-danger border-4">
+      <div class="card-body py-2">
+        <div class="text-muted small">Total Despesas (pagas)</div>
+        <div class="fw-bold text-danger fs-5">{{ total_despesas|currency }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-start border-primary border-4">
+      <div class="card-body py-2">
+        <div class="text-muted small">Saldo</div>
+        <div class="fw-bold fs-5 {% if saldo >= 0 %}text-success{% else %}text-danger{% endif %}">
+          {{ saldo|currency }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-2 mb-3">
+      <div class="col-md-3">
+        <input type="text" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="Descrição...">
+      </div>
+      <div class="col-md-2">
+        <select name="tipo" class="form-select">
+          <option value="">Tipo</option>
+          <option value="receita" {% if request.GET.tipo == 'receita' %}selected{% endif %}>Receita</option>
+          <option value="despesa" {% if request.GET.tipo == 'despesa' %}selected{% endif %}>Despesa</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="status" class="form-select">
+          <option value="">Status</option>
+          <option value="pendente" {% if request.GET.status == 'pendente' %}selected{% endif %}>Pendente</option>
+          <option value="pago" {% if request.GET.status == 'pago' %}selected{% endif %}>Pago</option>
+          <option value="vencido" {% if request.GET.status == 'vencido' %}selected{% endif %}>Vencido</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i> Filtrar</button>
+        <a href="{% url 'financeiro:list' %}" class="btn btn-outline-secondary">Limpar</a>
+      </div>
+    </form>
+
+    <div class="table-responsive">
+      <table class="table table-hover table-sm">
+        <thead class="table-light">
+          <tr>
+            <th>Descrição</th><th>Tipo</th><th>Categoria</th>
+            <th>Valor</th><th>Competência</th><th>Vencimento</th>
+            <th>Pagamento</th><th>Status</th><th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lanc in lancamentos %}
+          <tr {% if lanc.status == 'vencido' %}class="table-danger"{% endif %}>
+            <td>
+              {{ lanc.descricao }}
+              {% if lanc.ordem_servico %}
+              <a href="{% url 'ordens_servico:detail' lanc.ordem_servico.pk %}" class="ms-1 text-muted small">
+                [{{ lanc.ordem_servico }}]
+              </a>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge {% if lanc.tipo == 'receita' %}bg-success{% else %}bg-danger{% endif %}">
+                {{ lanc.get_tipo_display }}
+              </span>
+            </td>
+            <td><small class="text-muted">{{ lanc.get_categoria_display }}</small></td>
+            <td class="fw-semibold {% if lanc.tipo == 'receita' %}text-success{% else %}text-danger{% endif %}">
+              {{ lanc.valor|currency }}
+            </td>
+            <td>{{ lanc.data_competencia|date:"d/m/Y" }}</td>
+            <td>{{ lanc.data_vencimento|date:"d/m/Y"|default:"—" }}</td>
+            <td>{{ lanc.data_pagamento|date:"d/m/Y"|default:"—" }}</td>
+            <td>
+              <span class="badge bg-{{ lanc.status|status_badge }}">{{ lanc.get_status_display }}</span>
+            </td>
+            <td>
+              {% if lanc.status == 'pendente' %}
+              <a href="{% url 'financeiro:pagar' lanc.pk %}" class="btn btn-sm btn-success" title="Marcar como pago">
+                <i class="bi bi-check-lg"></i>
+              </a>
+              {% endif %}
+              <a href="{% url 'financeiro:update' lanc.pk %}" class="btn btn-sm btn-outline-warning" title="Editar">
+                <i class="bi bi-pencil"></i>
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="9" class="text-center text-muted py-4">Nenhum lançamento encontrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if is_paginated %}
+    <nav>
+      <ul class="pagination pagination-sm justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">«</a></li>
+        {% endif %}
+        <li class="page-item active"><a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">»</a></li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

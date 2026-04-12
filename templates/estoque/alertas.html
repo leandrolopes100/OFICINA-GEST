@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% load oficina_tags %}
+{% block title %}Alertas de Estoque{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-exclamation-triangle-fill text-warning"></i> Alertas de Estoque</h4>
+  <div>
+    <a href="{% url 'estoque:movimentacao_create' %}" class="btn btn-success btn-sm">
+      <i class="bi bi-plus-circle"></i> Registrar Entrada
+    </a>
+    <a href="{% url 'estoque:list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Voltar ao Estoque
+    </a>
+  </div>
+</div>
+
+{% if produtos %}
+<div class="alert alert-warning d-flex align-items-center gap-2">
+  <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+  <span><strong>{{ produtos|length }} produto(s)</strong> com estoque abaixo do mínimo e precisam ser repostos!</span>
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr><th>Código</th><th>Produto</th><th>Categoria</th><th>Fornecedor</th><th>Atual</th><th>Mínimo</th><th>Diferença</th><th>Ação</th></tr>
+      </thead>
+      <tbody>
+        {% for p in produtos %}
+        <tr class="table-warning">
+          <td><small class="text-muted">{{ p.codigo }}</small></td>
+          <td><a href="{% url 'estoque:detail' p.pk %}" class="fw-semibold text-decoration-none">{{ p.nome }}</a></td>
+          <td>{{ p.categoria|default:"—" }}</td>
+          <td>{{ p.fornecedor|default:"—" }}</td>
+          <td class="text-danger fw-bold">{{ p.estoque_atual }} {{ p.get_unidade_display }}</td>
+          <td>{{ p.estoque_minimo }}</td>
+          <td class="text-danger">{{ p.estoque_minimo|add:"-0" }}</td>
+          <td>
+            <a href="{% url 'estoque:movimentacao_create' %}" class="btn btn-sm btn-success">
+              <i class="bi bi-plus-circle"></i> Repor
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-success d-flex align-items-center gap-2">
+  <i class="bi bi-check-circle-fill fs-5"></i>
+  <span>Ótimo! Nenhum produto com estoque abaixo do mínimo. Tudo em ordem!</span>
+</div>
+{% endif %}
+{% endblock %}

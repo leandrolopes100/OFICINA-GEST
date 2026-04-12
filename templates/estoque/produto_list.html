@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% load oficina_tags %}
+{% block title %}Estoque{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-boxes text-primary"></i> Estoque</h4>
+  <div>
+    <a href="{% url 'estoque:alertas' %}" class="btn btn-warning btn-sm me-1">
+      <i class="bi bi-exclamation-triangle"></i> Alertas
+      {% if alertas > 0 %}<span class="badge bg-danger">{{ alertas }}</span>{% endif %}
+    </a>
+    <a href="{% url 'estoque:movimentacao_create' %}" class="btn btn-outline-primary btn-sm me-1">
+      <i class="bi bi-arrow-left-right"></i> Movimentação
+    </a>
+    <a href="{% url 'estoque:create' %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-circle"></i> Novo Produto
+    </a>
+  </div>
+</div>
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-2 mb-3">
+      <div class="col-md-4">
+        <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Código ou nome...">
+      </div>
+      <div class="col-md-3">
+        <select name="categoria" class="form-select">
+          <option value="">Todas as categorias</option>
+          {% for cat in categorias %}
+          <option value="{{ cat.pk }}">{{ cat.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto d-flex align-items-center gap-2">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="alerta" id="alertaCheck"
+            {% if request.GET.alerta %}checked{% endif %}>
+          <label class="form-check-label small" for="alertaCheck">Só alertas</label>
+        </div>
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i></button>
+        <a href="{% url 'estoque:list' %}" class="btn btn-outline-secondary">Limpar</a>
+      </div>
+    </form>
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Código</th><th>Nome</th><th>Categoria</th>
+            <th>Estoque Atual</th><th>Mínimo</th><th>Preço Venda</th><th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in produtos %}
+          <tr {% if p.abaixo_minimo %}class="table-warning"{% endif %}>
+            <td><small class="text-muted">{{ p.codigo }}</small></td>
+            <td>
+              <a href="{% url 'estoque:detail' p.pk %}" class="text-decoration-none fw-semibold">{{ p.nome }}</a>
+              {% if p.abaixo_minimo %}<span class="badge bg-danger ms-1 small">Alerta</span>{% endif %}
+            </td>
+            <td>{{ p.categoria|default:"—" }}</td>
+            <td>
+              <span class="{% if p.abaixo_minimo %}text-danger fw-bold{% endif %}">
+                {{ p.estoque_atual }} {{ p.get_unidade_display }}
+              </span>
+            </td>
+            <td>{{ p.estoque_minimo }}</td>
+            <td>{{ p.preco_venda|currency }}</td>
+            <td>
+              <a href="{% url 'estoque:detail' p.pk %}" class="btn btn-sm btn-outline-info" title="Ver"><i class="bi bi-eye"></i></a>
+              <a href="{% url 'estoque:update' p.pk %}" class="btn btn-sm btn-outline-warning" title="Editar"><i class="bi bi-pencil"></i></a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-4">Nenhum produto encontrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if is_paginated %}
+    <nav>
+      <ul class="pagination pagination-sm justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}">«</a></li>
+        {% endif %}
+        <li class="page-item active"><a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}">»</a></li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

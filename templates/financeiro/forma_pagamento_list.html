@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Formas de Pagamento{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-credit-card-fill text-primary"></i> Formas de Pagamento</h4>
+  <a href="{% url 'financeiro:formas_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle"></i> Nova Forma de Pagamento
+  </a>
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr><th>Nome</th><th>Taxa (%)</th><th>Prazo (dias)</th><th>Ativo</th><th>Ações</th></tr>
+      </thead>
+      <tbody>
+        {% for f in formas %}
+        <tr>
+          <td class="fw-semibold">{{ f.nome }}</td>
+          <td>{{ f.taxa }}%</td>
+          <td>{{ f.prazo_dias }} dias</td>
+          <td>
+            {% if f.ativo %}
+              <span class="badge bg-success">Ativo</span>
+            {% else %}
+              <span class="badge bg-secondary">Inativo</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'financeiro:formas_create' %}" class="btn btn-sm btn-outline-warning">
+              <i class="bi bi-pencil"></i>
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">Nenhuma forma de pagamento cadastrada.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

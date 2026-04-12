@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}Fornecedores{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-truck text-primary"></i> Fornecedores</h4>
+  <a href="{% url 'estoque:fornecedor_create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle"></i> Novo Fornecedor
+  </a>
+</div>
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-2 mb-3">
+      <div class="col-md-5">
+        <input type="text" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="Buscar por nome ou CNPJ...">
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i> Buscar</button>
+        <a href="{% url 'estoque:fornecedor_list' %}" class="btn btn-outline-secondary">Limpar</a>
+      </div>
+    </form>
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr><th>Nome</th><th>CNPJ</th><th>Contato</th><th>Telefone</th><th>E-mail</th><th>Produtos</th><th>Ações</th></tr>
+        </thead>
+        <tbody>
+          {% for f in fornecedores %}
+          <tr>
+            <td class="fw-semibold">{{ f.nome }}</td>
+            <td>{{ f.cnpj|default:"—" }}</td>
+            <td>{{ f.contato|default:"—" }}</td>
+            <td>{{ f.telefone|default:"—" }}</td>
+            <td>{{ f.email|default:"—" }}</td>
+            <td><span class="badge bg-secondary">{{ f.produtos.count }}</span></td>
+            <td>
+              <a href="{% url 'estoque:fornecedor_update' f.pk %}" class="btn btn-sm btn-outline-warning">
+                <i class="bi bi-pencil"></i>
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-4">Nenhum fornecedor cadastrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

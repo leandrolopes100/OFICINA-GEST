@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% block title %}{% if object %}Editar{% else %}Novo{% endif %} Fornecedor{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold">
+    <i class="bi bi-truck text-primary"></i>
+    {% if object %}Editar Fornecedor{% else %}Novo Fornecedor{% endif %}
+  </h4>
+  <a href="{% url 'estoque:fornecedor_list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i> Voltar
+  </a>
+</div>
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-body">{% crispy form %}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

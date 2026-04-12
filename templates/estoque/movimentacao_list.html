@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% load oficina_tags %}
+{% block title %}Movimentações de Estoque{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-arrow-left-right text-primary"></i> Movimentações de Estoque</h4>
+  <div>
+    <a href="{% url 'estoque:movimentacao_create' %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-circle"></i> Nova Movimentação
+    </a>
+    <a href="{% url 'estoque:list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-boxes"></i> Produtos
+    </a>
+  </div>
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Quantidade</th><th>Custo Unit.</th><th>NF</th><th>Usuário</th><th>Obs.</th></tr>
+      </thead>
+      <tbody>
+        {% for mov in movimentacoes %}
+        <tr>
+          <td><small>{{ mov.data|date:"d/m/Y H:i" }}</small></td>
+          <td><a href="{% url 'estoque:detail' mov.produto.pk %}" class="text-decoration-none">{{ mov.produto.nome }}</a></td>
+          <td>
+            <span class="badge {% if mov.tipo == 'entrada' or mov.tipo == 'devolucao' %}bg-success{% elif mov.tipo == 'saida' %}bg-danger{% else %}bg-secondary{% endif %}">
+              {{ mov.get_tipo_display }}
+            </span>
+          </td>
+          <td>
+            <span class="fw-semibold {% if mov.tipo == 'saida' %}text-danger{% else %}text-success{% endif %}">
+              {% if mov.tipo == 'saida' %}-{% else %}+{% endif %}{{ mov.quantidade }}
+            </span>
+          </td>
+          <td>{{ mov.custo_unitario|currency }}</td>
+          <td><small>{{ mov.nota_fiscal|default:"—" }}</small></td>
+          <td>{{ mov.usuario|default:"—" }}</td>
+          <td><small class="text-muted">{{ mov.observacao|truncatechars:30 }}</small></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center text-muted py-4">Nenhuma movimentação registrada.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if is_paginated %}
+  <div class="card-footer">
+    <nav>
+      <ul class="pagination pagination-sm justify-content-center mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">«</a></li>
+        {% endif %}
+        <li class="page-item active"><a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">»</a></li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
