@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% load oficina_tags %}
+{% block title %}{{ cliente.nome }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-person-fill text-primary"></i> {{ cliente.nome }}</h4>
+  <div>
+    <a href="{% url 'clientes:update' cliente.pk %}" class="btn btn-warning btn-sm"><i class="bi bi-pencil"></i> Editar</a>
+    <a href="{% url 'veiculos:create' %}?cliente={{ cliente.pk }}" class="btn btn-success btn-sm"><i class="bi bi-plus"></i> Novo Veículo</a>
+    <a href="{% url 'clientes:list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Voltar</a>
+  </div>
+</div>
+<div class="row g-3">
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-header">Dados do Cliente</div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5">Tipo</dt><dd class="col-7">{{ cliente.get_tipo_pessoa_display }}</dd>
+          <dt class="col-5">CPF/CNPJ</dt><dd class="col-7">{{ cliente.cpf_cnpj }}</dd>
+          <dt class="col-5">Telefone</dt><dd class="col-7">{{ cliente.telefone }}</dd>
+          <dt class="col-5">Celular</dt><dd class="col-7">{{ cliente.celular|default:"—" }}</dd>
+          <dt class="col-5">E-mail</dt><dd class="col-7">{{ cliente.email|default:"—" }}</dd>
+          <dt class="col-5">Endereço</dt><dd class="col-7">{{ cliente.endereco_completo|default:"—" }}</dd>
+          <dt class="col-5">Cadastro</dt><dd class="col-7">{{ cliente.criado_em|date:"d/m/Y" }}</dd>
+        </dl>
+        {% if cliente.observacoes %}
+        <hr>
+        <small class="text-muted">{{ cliente.observacoes }}</small>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-7">
+    <div class="card mb-3">
+      <div class="card-header">Veículos ({{ veiculos.count }})</div>
+      <div class="card-body p-0">
+        <div class="list-group list-group-flush">
+          {% for v in veiculos %}
+          <a href="{% url 'veiculos:detail' v.pk %}" class="list-group-item list-group-item-action">
+            <div class="d-flex justify-content-between">
+              <span class="fw-semibold">{{ v.placa }}</span>
+              <small class="text-muted">{{ v.km_atual }} km</small>
+            </div>
+            <small class="text-muted">{{ v.modelo }} · {{ v.ano_modelo }} · {{ v.get_combustivel_display }}</small>
+          </a>
+          {% empty %}
+          <div class="list-group-item text-muted small">Nenhum veículo cadastrado.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">Últimas Ordens de Serviço</div>
+      <div class="card-body p-0">
+        <div class="list-group list-group-flush">
+          {% for os in ordens %}
+          <a href="{% url 'ordens_servico:detail' os.pk %}" class="list-group-item list-group-item-action">
+            <div class="d-flex justify-content-between">
+              <span class="fw-semibold">{{ os }}</span>
+              <span class="badge bg-{{ os.status|status_badge }}">{{ os.get_status_display }}</span>
+            </div>
+            <small class="text-muted">{{ os.veiculo.placa }} · {{ os.data_abertura|date:"d/m/Y" }} · {{ os.total|currency }}</small>
+          </a>
+          {% empty %}
+          <div class="list-group-item text-muted small">Nenhuma OS registrada.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

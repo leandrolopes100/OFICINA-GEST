@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% load oficina_tags %}
+{% block title %}Ordens de Serviço{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-clipboard2-check-fill text-primary"></i> Ordens de Serviço</h4>
+  <a href="{% url 'ordens_servico:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle"></i> Nova OS</a>
+</div>
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-2 mb-3">
+      <div class="col-md-4"><input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por cliente..."></div>
+      <div class="col-md-3">
+        <select name="status" class="form-select">
+          <option value="">Todos os status</option>
+          {% for val, label in status_choices %}<option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i> Filtrar</button>
+        <a href="{% url 'ordens_servico:list' %}" class="btn btn-outline-secondary">Limpar</a>
+      </div>
+    </form>
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr><th>Número</th><th>Cliente</th><th>Veículo</th><th>Mecânico</th><th>Status</th><th>Abertura</th><th>Previsão</th><th>Total</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for os in ordens %}
+          <tr>
+            <td><a href="{% url 'ordens_servico:detail' os.pk %}" class="fw-bold text-decoration-none">{{ os }}</a></td>
+            <td>{{ os.cliente.nome }}</td>
+            <td>{{ os.veiculo.placa }}</td>
+            <td>{{ os.mecanico|default:"—" }}</td>
+            <td><span class="badge bg-{{ os.status|status_badge }}">{{ os.get_status_display }}</span></td>
+            <td>{{ os.data_abertura|date:"d/m/Y" }}</td>
+            <td>{{ os.data_previsao|date:"d/m/Y"|default:"—" }}</td>
+            <td>{{ os.total|currency }}</td>
+            <td>
+              <a href="{% url 'ordens_servico:detail' os.pk %}" class="btn btn-sm btn-outline-info"><i class="bi bi-eye"></i></a>
+              <a href="{% url 'ordens_servico:pdf' os.pk %}" class="btn btn-sm btn-outline-danger" target="_blank"><i class="bi bi-file-pdf"></i></a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="9" class="text-center text-muted py-4">Nenhuma ordem de serviço encontrada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if is_paginated %}
+    <nav><ul class="pagination pagination-sm justify-content-center">
+      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">«</a></li>{% endif %}
+      <li class="page-item active"><a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a></li>
+      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">»</a></li>{% endif %}
+    </ul></nav>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

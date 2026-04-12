@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% load oficina_tags %}
+{% block title %}ORC-{{ orcamento.numero }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-file-earmark-text-fill text-primary"></i> ORC-{{ orcamento.numero }}
+    <span class="badge bg-{{ orcamento.status|status_badge }} ms-2">{{ orcamento.get_status_display }}</span>
+  </h4>
+  <div class="d-flex gap-1">
+    {% if orcamento.pode_editar %}<a href="{% url 'orcamentos:update' orcamento.pk %}" class="btn btn-warning btn-sm"><i class="bi bi-pencil"></i> Editar</a>{% endif %}
+    {% if orcamento.status == 'rascunho' %}<a href="{% url 'orcamentos:enviar' orcamento.pk %}" class="btn btn-info btn-sm"><i class="bi bi-send"></i> Enviar</a>{% endif %}
+    {% if orcamento.status == 'enviado' %}
+    <a href="{% url 'orcamentos:aprovar' orcamento.pk %}" class="btn btn-success btn-sm"><i class="bi bi-check-circle"></i> Aprovar</a>
+    <a href="{% url 'orcamentos:reprovar' orcamento.pk %}" class="btn btn-danger btn-sm"><i class="bi bi-x-circle"></i> Reprovar</a>
+    {% endif %}
+    {% if orcamento.pode_gerar_os %}<a href="{% url 'orcamentos:gerar_os' orcamento.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-clipboard2-plus"></i> Gerar OS</a>{% endif %}
+    <a href="{% url 'orcamentos:pdf' orcamento.pk %}" class="btn btn-outline-danger btn-sm" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a>
+    <a href="{% url 'orcamentos:list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i></a>
+  </div>
+</div>
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card mb-3">
+      <div class="card-header">Informações</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-5">Cliente</dt><dd class="col-7"><a href="{% url 'clientes:detail' orcamento.cliente.pk %}">{{ orcamento.cliente.nome }}</a></dd>
+          <dt class="col-5">Veículo</dt><dd class="col-7"><a href="{% url 'veiculos:detail' orcamento.veiculo.pk %}">{{ orcamento.veiculo.placa }}</a></dd>
+          <dt class="col-5">KM Entrada</dt><dd class="col-7">{{ orcamento.km_entrada }}</dd>
+          <dt class="col-5">Criado em</dt><dd class="col-7">{{ orcamento.data_criacao|date:"d/m/Y" }}</dd>
+          <dt class="col-5">Válido até</dt><dd class="col-7">{{ orcamento.data_validade|date:"d/m/Y" }}</dd>
+          {% if orcamento.criado_por %}<dt class="col-5">Criado por</dt><dd class="col-7">{{ orcamento.criado_por }}</dd>{% endif %}
+        </dl>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">Resumo Financeiro</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-6">Subtotal Serviços</dt><dd class="col-6 text-end">{{ orcamento.subtotal_servicos|currency }}</dd>
+          <dt class="col-6">Subtotal Peças</dt><dd class="col-6 text-end">{{ orcamento.subtotal_pecas|currency }}</dd>
+          {% if orcamento.desconto_valor %}<dt class="col-6 text-danger">Desconto</dt><dd class="col-6 text-end text-danger">- {{ orcamento.desconto_valor|currency }}</dd>{% endif %}
+          {% if orcamento.taxa_valor %}<dt class="col-6">Taxa</dt><dd class="col-6 text-end">{{ orcamento.taxa_valor|currency }}</dd>{% endif %}
+          <dt class="col-6 fw-bold border-top pt-1">TOTAL</dt><dd class="col-6 text-end fw-bold border-top pt-1 fs-5">{{ orcamento.total|currency }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-tools"></i> Serviços</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>Descrição</th><th>Qtd</th><th>Valor Unit.</th><th>Total</th></tr></thead>
+          <tbody>
+            {% for item in itens_servico %}
+            <tr><td>{{ item.descricao }}</td><td>{{ item.quantidade }}</td><td>{{ item.preco_unitario|currency }}</td><td>{{ item.total|currency }}</td></tr>
+            {% empty %}<tr><td colspan="4" class="text-muted small text-center">Nenhum serviço.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><i class="bi bi-box-seam"></i> Peças / Materiais</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>Descrição</th><th>Qtd</th><th>Valor Unit.</th><th>Total</th></tr></thead>
+          <tbody>
+            {% for item in itens_peca %}
+            <tr><td>{{ item.descricao }}</td><td>{{ item.quantidade }}</td><td>{{ item.preco_unitario|currency }}</td><td>{{ item.total|currency }}</td></tr>
+            {% empty %}<tr><td colspan="4" class="text-muted small text-center">Nenhuma peça.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% if orcamento.observacoes or orcamento.condicoes %}
+    <div class="card mt-3">
+      <div class="card-body small">
+        {% if orcamento.observacoes %}<p><strong>Observações:</strong> {{ orcamento.observacoes }}</p>{% endif %}
+        {% if orcamento.condicoes %}<p class="mb-0"><strong>Condições:</strong> {{ orcamento.condicoes }}</p>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

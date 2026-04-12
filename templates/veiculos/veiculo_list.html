@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Veículos{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-car-front-fill text-primary"></i> Veículos</h4>
+  <a href="{% url 'veiculos:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle"></i> Novo Veículo</a>
+</div>
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-2 mb-3">
+      <div class="col-md-6">
+        <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por placa, cliente, marca, modelo...">
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i> Buscar</button>
+        {% if q %}<a href="{% url 'veiculos:list' %}" class="btn btn-outline-secondary">Limpar</a>{% endif %}
+      </div>
+    </form>
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr><th>Placa</th><th>Cliente</th><th>Modelo</th><th>Ano</th><th>Combustível</th><th>KM</th><th>Ações</th></tr>
+        </thead>
+        <tbody>
+          {% for v in veiculos %}
+          <tr>
+            <td><a href="{% url 'veiculos:detail' v.pk %}" class="fw-bold text-decoration-none">{{ v.placa }}</a></td>
+            <td><a href="{% url 'clientes:detail' v.cliente.pk %}" class="text-decoration-none">{{ v.cliente.nome }}</a></td>
+            <td>{{ v.modelo }}</td>
+            <td>{{ v.ano_modelo }}</td>
+            <td>{{ v.get_combustivel_display }}</td>
+            <td>{{ v.km_atual|floatformat:0 }} km</td>
+            <td>
+              <a href="{% url 'veiculos:detail' v.pk %}" class="btn btn-sm btn-outline-info" title="Ver"><i class="bi bi-eye"></i></a>
+              <a href="{% url 'veiculos:update' v.pk %}" class="btn btn-sm btn-outline-warning" title="Editar"><i class="bi bi-pencil"></i></a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-4">Nenhum veículo encontrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if is_paginated %}
+    <nav><ul class="pagination pagination-sm justify-content-center">
+      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}">«</a></li>{% endif %}
+      <li class="page-item active"><a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a></li>
+      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}">»</a></li>{% endif %}
+    </ul></nav>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

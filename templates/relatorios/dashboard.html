@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% load oficina_tags %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-speedometer2 text-primary"></i> Dashboard</h4>
+  <small class="text-muted">Atualizado agora</small>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card border-start border-primary border-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between">
+          <div>
+            <div class="text-muted small">Clientes Ativos</div>
+            <div class="fs-3 fw-bold text-primary">{{ total_clientes }}</div>
+          </div>
+          <i class="bi bi-people-fill fs-1 text-primary opacity-25"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-start border-warning border-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between">
+          <div>
+            <div class="text-muted small">OS em Aberto</div>
+            <div class="fs-3 fw-bold text-warning">{{ os_abertas }}</div>
+          </div>
+          <i class="bi bi-clipboard2-check-fill fs-1 text-warning opacity-25"></i>
+        </div>
+        <a href="/ordens-servico/?status=aberta" class="small text-decoration-none">Ver todas →</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-start border-info border-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between">
+          <div>
+            <div class="text-muted small">Orçamentos Pendentes</div>
+            <div class="fs-3 fw-bold text-info">{{ orcamentos_pendentes }}</div>
+          </div>
+          <i class="bi bi-file-earmark-text-fill fs-1 text-info opacity-25"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-start border-success border-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between">
+          <div>
+            <div class="text-muted small">Faturamento do Mês</div>
+            <div class="fs-5 fw-bold text-success">{{ faturamento_mes|currency }}</div>
+          </div>
+          <i class="bi bi-cash-stack fs-1 text-success opacity-25"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if alertas_estoque > 0 %}
+<div class="alert alert-warning d-flex align-items-center">
+  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+  <span><strong>{{ alertas_estoque }} produto(s)</strong> com estoque abaixo do mínimo.
+  <a href="/estoque/alertas/" class="alert-link">Ver alertas</a></span>
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <!-- Gráfico -->
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header">Faturamento — Últimos 6 Meses</div>
+      <div class="card-body">
+        <canvas id="graficoFaturamento" height="100"></canvas>
+      </div>
+    </div>
+  </div>
+  <!-- Orçamentos recentes -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between">
+        Orçamentos Recentes
+        <a href="/orcamentos/" class="small">Ver todos</a>
+      </div>
+      <div class="card-body p-0">
+        <div class="list-group list-group-flush">
+          {% for orc in orcamentos_recentes %}
+          <a href="/orcamentos/{{ orc.pk }}/" class="list-group-item list-group-item-action px-3 py-2">
+            <div class="d-flex justify-content-between">
+              <span class="fw-semibold small">{{ orc.cliente.nome|truncatechars:20 }}</span>
+              <span class="badge bg-{{ orc.status|status_badge }} status-badge">{{ orc.get_status_display }}</span>
+            </div>
+            <div class="text-muted small">ORC-{{ orc.numero }} · {{ orc.total|currency }}</div>
+          </a>
+          {% empty %}
+          <div class="list-group-item text-muted small">Nenhum orçamento.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <!-- OS Recentes -->
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between">
+        Ordens de Serviço Recentes
+        <a href="/ordens-servico/" class="small">Ver todas</a>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light">
+              <tr><th>Número</th><th>Cliente</th><th>Veículo</th><th>Mecânico</th><th>Status</th><th>Abertura</th><th>Total</th></tr>
+            </thead>
+            <tbody>
+              {% for os in ordens_recentes %}
+              <tr>
+                <td><a href="/ordens-servico/{{ os.pk }}/">{{ os }}</a></td>
+                <td>{{ os.cliente.nome }}</td>
+                <td>{{ os.veiculo.placa }}</td>
+                <td>{{ os.mecanico|default:"—" }}</td>
+                <td><span class="badge bg-{{ os.status|status_badge }}">{{ os.get_status_display }}</span></td>
+                <td>{{ os.data_abertura|date:"d/m/Y" }}</td>
+                <td>{{ os.total|currency }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="7" class="text-center text-muted">Nenhuma OS registrada.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+fetch('/relatorios/api/dashboard/')
+  .then(r => r.json())
+  .then(data => {
+    new Chart(document.getElementById('graficoFaturamento'), {
+      type: 'bar',
+      data: {
+        labels: data.labels,
+        datasets: [
+          { label: 'Receitas', data: data.receitas, backgroundColor: 'rgba(25,135,84,0.7)' },
+          { label: 'Despesas', data: data.despesas, backgroundColor: 'rgba(220,53,69,0.7)' },
+        ]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'top' } } }
+    });
+  });
+</script>
+{% endblock %}
