@@ -1,36 +1,242 @@
 {% extends 'base.html' %}
 {% block title %}Marcas e Modelos{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0 fw-bold"><i class="bi bi-bookmark-fill text-primary"></i> Marcas de Veículos</h4>
-  <a href="{% url 'veiculos:marca_create' %}" class="btn btn-primary btn-sm">
-    <i class="bi bi-plus-circle"></i> Nova Marca
-  </a>
+  <h4 class="mb-0 fw-bold"><i class="bi bi-bookmark-fill text-primary"></i> Marcas e Modelos</h4>
+  <div class="d-flex gap-2">
+    <button type="button" class="btn btn-outline-success btn-sm"
+            data-bs-toggle="modal" data-bs-target="#modalNovoModelo"
+            data-marca-id="" data-marca-nome="">
+      <i class="bi bi-plus-circle"></i> Novo Modelo
+    </button>
+    <a href="{% url 'veiculos:marca_create' %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-circle"></i> Nova Marca
+    </a>
+  </div>
 </div>
+
 <div class="card">
   <div class="table-responsive">
     <table class="table table-hover mb-0">
       <thead class="table-light">
-        <tr><th>Marca</th><th>Modelos Cadastrados</th><th>Veículos</th></tr>
+        <tr>
+          <th style="width:20%">Marca</th>
+          <th>Modelos Cadastrados</th>
+          <th style="width:10%" class="text-center">Veículos</th>
+        </tr>
       </thead>
       <tbody>
         {% for m in marcas %}
         <tr>
-          <td class="fw-semibold">{{ m.nome }}</td>
-          <td>
+          <td class="fw-semibold align-middle">{{ m.nome }}</td>
+          <td class="align-middle">
             {% for modelo in m.modelos.all %}
-              <span class="badge bg-secondary me-1">{{ modelo.nome }}</span>
+              <span class="badge bg-secondary me-1 mb-1 d-inline-flex align-items-center gap-1">
+                {{ modelo.nome }}
+                <button type="button"
+                        class="btn-close btn-close-white"
+                        style="font-size:.5rem;opacity:.8"
+                        title="Remover modelo"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalExcluirModelo"
+                        data-modelo-id="{{ modelo.pk }}"
+                        data-modelo-nome="{{ modelo.nome|escapejs }}"
+                        data-marca-nome="{{ m.nome|escapejs }}"
+                        data-url="{% url 'veiculos:modelo_delete' modelo.pk %}">
+                </button>
+              </span>
             {% empty %}
-              <small class="text-muted">Nenhum modelo</small>
+              <small class="text-muted">Nenhum modelo cadastrado</small>
             {% endfor %}
+            {# Botão + por linha — pré-seleciona a marca no modal #}
+            <button type="button"
+                    class="btn btn-sm btn-outline-success py-0 ms-1"
+                    style="font-size:.75rem"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalNovoModelo"
+                    data-marca-id="{{ m.pk }}"
+                    data-marca-nome="{{ m.nome|escapejs }}"
+                    title="Adicionar modelo à {{ m.nome }}">
+              <i class="bi bi-plus-lg"></i>
+            </button>
           </td>
-          <td><span class="badge bg-primary">{{ m.veiculo_set.count }}</span></td>
+          <td class="text-center align-middle">
+            <span class="badge bg-primary">{{ m.n_veiculos }}</span>
+          </td>
         </tr>
         {% empty %}
-        <tr><td colspan="3" class="text-center text-muted py-4">Nenhuma marca cadastrada.</td></tr>
+        <tr>
+          <td colspan="3" class="text-center text-muted py-4">Nenhuma marca cadastrada.</td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+
+  {% if is_paginated %}
+  <div class="card-footer">
+    <nav>
+      <ul class="pagination pagination-sm justify-content-center mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}">«</a>
+        </li>
+        {% endif %}
+        <li class="page-item active">
+          <a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a>
+        </li>
+        {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}">»</a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
 </div>
+
+{# ══ Modal — Adicionar Modelo ══ #}
+<div class="modal fade" id="modalNovoModelo" tabindex="-1"
+     aria-labelledby="modalModeloTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="modalModeloTitulo">
+          <i class="bi bi-plus-circle me-2"></i> Novo Modelo
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+
+      <form method="post" action="{% url 'veiculos:modelo_create' %}" id="formNovoModelo">
+        {% csrf_token %}
+        {# hidden garante que o valor da marca seja enviado mesmo quando o select está desabilitado #}
+        <input type="hidden" name="marca" id="hiddenMarcaId">
+        <div class="modal-body">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              Marca <span class="text-danger">*</span>
+            </label>
+            <select id="modalModeloMarca" class="form-select"
+                    onchange="document.getElementById('hiddenMarcaId').value = this.value">
+              <option value="">— Selecione a marca —</option>
+              {% for m in marcas %}
+              <option value="{{ m.pk }}">{{ m.nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-1">
+            <label class="form-label fw-semibold">
+              Nome do Modelo <span class="text-danger">*</span>
+            </label>
+            <input type="text" name="nome" id="modalModeloNome"
+                   class="form-control" placeholder="Ex: Corolla, Civic, Gol..."
+                   maxlength="100" required autofocus>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+            <i class="bi bi-x-lg me-1"></i> Cancelar
+          </button>
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-check-lg me-1"></i> Salvar Modelo
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+
+{# ══ Modal — Confirmar Exclusão de Modelo ══ #}
+<div class="modal fade" id="modalExcluirModelo" tabindex="-1"
+     aria-labelledby="modalExcluirModeloTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="modalExcluirModeloTitulo">
+          <i class="bi bi-trash me-2"></i> Remover Modelo
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="mb-3">Confirma a remoção do modelo:</p>
+        <div class="rounded border px-3 py-2 bg-light small">
+          <div class="fw-bold fs-6" id="modalExcluirNomeModelo"></div>
+          <div class="text-muted" id="modalExcluirNomeMarca"></div>
+        </div>
+        <p class="text-danger fw-semibold small mt-3 mb-0">
+          <i class="bi bi-exclamation-circle me-1"></i>
+          Esta ação não pode ser desfeita. Modelos com veículos vinculados são bloqueados automaticamente.
+        </p>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg me-1"></i> Cancelar
+        </button>
+        <form method="post" id="formExcluirModelo" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash me-1"></i> Remover
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ── Modal Novo Modelo — pré-seleciona marca quando vem do botão [ + ] da linha ── */
+document.getElementById('modalNovoModelo').addEventListener('show.bs.modal', function (e) {
+  var btn     = e.relatedTarget;
+  var marcaId = btn ? btn.dataset.marcaId : '';
+  var select  = document.getElementById('modalModeloMarca');
+  var hidden  = document.getElementById('hiddenMarcaId');
+  var input   = document.getElementById('modalModeloNome');
+
+  if (marcaId) {
+    /* Veio do [ + ] de uma linha: pré-seleciona e bloqueia visualmente */
+    select.value          = marcaId;
+    hidden.value          = marcaId;
+    select.style.pointerEvents = 'none';   /* impede clique sem disabled */
+    select.style.opacity       = '0.75';
+  } else {
+    /* Veio do botão global: libera seleção */
+    select.value          = '';
+    hidden.value          = '';
+    select.style.pointerEvents = '';
+    select.style.opacity       = '';
+  }
+  input.value = '';
+  setTimeout(function () { input.focus(); }, 300);
+});
+
+/* Limpa o bloqueio visual ao fechar */
+document.getElementById('modalNovoModelo').addEventListener('hide.bs.modal', function () {
+  var select = document.getElementById('modalModeloMarca');
+  select.style.pointerEvents = '';
+  select.style.opacity       = '';
+});
+
+/* ── Modal Excluir Modelo — popula dados e define a action do form ── */
+document.getElementById('modalExcluirModelo').addEventListener('show.bs.modal', function (e) {
+  var btn = e.relatedTarget;
+  document.getElementById('modalExcluirNomeModelo').textContent = btn.dataset.modeloNome;
+  document.getElementById('modalExcluirNomeMarca').textContent  = btn.dataset.marcaNome;
+  document.getElementById('formExcluirModelo').action           = btn.dataset.url;
+});
+</script>
 {% endblock %}

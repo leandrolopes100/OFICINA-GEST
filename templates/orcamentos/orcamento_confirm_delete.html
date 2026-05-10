@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+{% load oficina_tags %}
+{% block title %}Excluir Orçamento — ORC-{{ orcamento.numero }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="mb-0 fw-bold">
+        <i class="bi bi-trash text-danger"></i> Remover Orçamento
+      </h4>
+      <a href="{% url 'orcamentos:list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Voltar
+      </a>
+    </div>
+
+    {# ── Dados do orçamento ── #}
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Orçamento</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-4">Número</dt>
+          <dd class="col-8 fw-bold">ORC-{{ orcamento.numero }}</dd>
+          <dt class="col-4">Cliente</dt>
+          <dd class="col-8">{{ orcamento.cliente.nome }}</dd>
+          <dt class="col-4">Veículo</dt>
+          <dd class="col-8">{{ orcamento.veiculo.placa }} — {{ orcamento.veiculo.modelo }}</dd>
+          <dt class="col-4">Status</dt>
+          <dd class="col-8">
+            <span class="badge bg-{{ orcamento.status|status_badge }}">
+              {{ orcamento.get_status_display }}
+            </span>
+          </dd>
+          <dt class="col-4">Total</dt>
+          <dd class="col-8 fw-bold">{{ orcamento.total|currency }}</dd>
+          <dt class="col-4">Validade</dt>
+          <dd class="col-8">{{ orcamento.data_validade|date:"d/m/Y" }}</dd>
+          {% if tem_os %}
+          <dt class="col-4">OS vinculada</dt>
+          <dd class="col-8">
+            <a href="{% url 'ordens_servico:os_detalhe' orcamento.ordem_servico.pk %}" target="_blank">
+              <i class="bi bi-clipboard2-check"></i> OS-{{ orcamento.ordem_servico.numero }}
+            </a>
+          </dd>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+
+    {# ══ CASO 1: tem OS vinculada — risco alto ══ #}
+    {% if tem_os %}
+
+    <div class="alert alert-danger d-flex gap-2">
+      <i class="bi bi-exclamation-octagon-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        <strong>Atenção: este orçamento gerou a OS-{{ orcamento.ordem_servico.numero }}.</strong><br>
+        Se excluído, a OS perderá o vínculo com o orçamento de origem.
+        A OS em si <strong>não é deletada</strong>, mas o histórico de rastreabilidade é perdido.
+        <br><strong>Recomendação: cancele o orçamento em vez de excluí-lo.</strong>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-x-circle"></i> Cancelar orçamento (recomendado)
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-3">
+          O orçamento fica registrado como <strong>Cancelado</strong>,
+          o histórico é preservado e o vínculo com a OS é mantido.
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="cancelar">
+          <button type="submit" class="btn btn-warning">
+            <i class="bi bi-x-circle"></i> Cancelar orçamento
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card border-danger mb-3">
+      <div class="card-header text-danger fw-semibold">
+        <i class="bi bi-trash"></i> Excluir permanentemente (ciente dos riscos)
+      </div>
+      <div class="card-body">
+        <p class="small text-danger mb-3">
+          A OS-{{ orcamento.ordem_servico.numero }} perderá o vínculo com este orçamento.
+          Esta ação <strong>não pode ser desfeita</strong>.
+        </p>
+        <button type="button" class="btn btn-danger"
+                data-bs-toggle="modal" data-bs-target="#modalConfirmarExclusao">
+          <i class="bi bi-trash"></i> Excluir permanentemente
+        </button>
+      </div>
+    </div>
+
+    {# ══ CASO 2: status arriscado sem OS ══ #}
+    {% elif not status_seguro %}
+
+    <div class="alert alert-warning d-flex gap-2">
+      <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        <strong>Orçamento com status "{{ orcamento.get_status_display }}".</strong><br>
+        {% if orcamento.status == 'enviado' %}
+          Este orçamento ainda está aguardando resposta do cliente.
+        {% else %}
+          Este orçamento foi aprovado.
+        {% endif %}
+        Considere cancelá-lo em vez de excluir permanentemente.
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-x-circle"></i> Cancelar orçamento (recomendado)
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-3">
+          O orçamento fica como <strong>Cancelado</strong> e o histórico é preservado.
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="cancelar">
+          <button type="submit" class="btn btn-warning">
+            <i class="bi bi-x-circle"></i> Cancelar orçamento
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card border-danger mb-3">
+      <div class="card-header text-danger fw-semibold">
+        <i class="bi bi-trash"></i> Excluir permanentemente
+      </div>
+      <div class="card-body">
+        <p class="small text-danger mb-3">
+          Esta ação <strong>não pode ser desfeita</strong>.
+          Todos os itens do orçamento também serão excluídos.
+        </p>
+        <button type="button" class="btn btn-danger"
+                data-bs-toggle="modal" data-bs-target="#modalConfirmarExclusao">
+          <i class="bi bi-trash"></i> Excluir permanentemente
+        </button>
+      </div>
+    </div>
+
+    <a href="{% url 'orcamentos:list' %}" class="btn btn-outline-secondary">Cancelar</a>
+
+    {# ══ CASO 3: status seguro ══ #}
+    {% else %}
+
+    <div class="alert alert-success d-flex gap-2">
+      <i class="bi bi-check-circle-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        Orçamento com status <strong>{{ orcamento.get_status_display }}</strong>.
+        Pode ser excluído permanentemente sem impacto em outros registros.
+        Todos os itens vinculados também serão excluídos.
+      </div>
+    </div>
+
+    <div class="card border-danger mb-3">
+      <div class="card-header text-danger fw-semibold">
+        <i class="bi bi-trash"></i> Excluir permanentemente
+      </div>
+      <div class="card-body">
+        <p class="small text-danger mb-3">
+          Esta ação <strong>não pode ser desfeita</strong>.
+        </p>
+        <button type="button" class="btn btn-danger"
+                data-bs-toggle="modal" data-bs-target="#modalConfirmarExclusao">
+          <i class="bi bi-trash"></i> Excluir permanentemente
+        </button>
+      </div>
+    </div>
+
+    <a href="{% url 'orcamentos:list' %}" class="btn btn-outline-secondary">Cancelar</a>
+
+    {% endif %}
+
+  </div>
+</div>
+
+{# ══ Modal de confirmação de exclusão permanente ══ #}
+<div class="modal fade" id="modalConfirmarExclusao" tabindex="-1"
+     aria-labelledby="modalExclusaoTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="modalExclusaoTitulo">
+          <i class="bi bi-trash me-2"></i> Confirmar Exclusão Permanente
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="mb-3">Você está prestes a excluir permanentemente:</p>
+
+        <div class="rounded border px-3 py-2 bg-light mb-3 small">
+          <div class="fw-bold fs-6">ORC-{{ orcamento.numero }}</div>
+          <div class="text-muted">
+            {{ orcamento.cliente.nome }} &nbsp;·&nbsp;
+            {{ orcamento.veiculo.placa }} &nbsp;·&nbsp;
+            {{ orcamento.total|currency }}
+          </div>
+        </div>
+
+        {% if tem_os %}
+        <div class="alert alert-danger py-2 small mb-3">
+          <i class="bi bi-exclamation-octagon-fill me-1"></i>
+          A <strong>OS-{{ orcamento.ordem_servico.numero }}</strong> perderá o vínculo
+          com este orçamento. O histórico de rastreabilidade será perdido.
+        </div>
+        {% elif not status_seguro %}
+        <div class="alert alert-warning py-2 small mb-3">
+          <i class="bi bi-exclamation-triangle-fill me-1"></i>
+          Este orçamento está com status
+          <strong>{{ orcamento.get_status_display }}</strong>.
+          Todos os seus itens também serão excluídos.
+        </div>
+        {% else %}
+        <div class="alert alert-secondary py-2 small mb-3">
+          <i class="bi bi-info-circle me-1"></i>
+          Todos os itens vinculados a este orçamento também serão excluídos.
+        </div>
+        {% endif %}
+
+        <p class="text-danger fw-semibold mb-0">
+          <i class="bi bi-exclamation-circle me-1"></i>
+          Esta ação não pode ser desfeita.
+        </p>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg me-1"></i> Cancelar
+        </button>
+        <form method="post" class="d-inline">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="excluir">
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash me-1"></i> Excluir permanentemente
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

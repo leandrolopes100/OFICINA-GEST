@@ -28,14 +28,16 @@ class LancamentoForm(forms.ModelForm):
             'forma_pagamento', 'status', 'documento', 'observacoes',
         ]
         widgets = {
-            'data_competencia': forms.DateInput(attrs={'type': 'date'}),
-            'data_vencimento': forms.DateInput(attrs={'type': 'date'}),
-            'data_pagamento': forms.DateInput(attrs={'type': 'date'}),
+            'data_competencia': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
+            'data_vencimento': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
+            'data_pagamento': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
             'observacoes': forms.Textarea(attrs={'rows': 2}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Força seleção explícita — sem default silencioso para 'receita'
+        self.fields['tipo'].choices = [('', '— Receita ou Despesa? —')] + list(Lancamento.TIPO_CHOICES)
         self.helper = FormHelper()
         self.helper.layout = Layout(
             Row(Column('tipo', css_class='col-md-4'), Column('categoria', css_class='col-md-4'), Column('status', css_class='col-md-4')),

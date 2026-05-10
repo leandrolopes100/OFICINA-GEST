@@ -34,9 +34,10 @@
           <td>{{ p.fornecedor|default:"—" }}</td>
           <td class="text-danger fw-bold">{{ p.estoque_atual }} {{ p.get_unidade_display }}</td>
           <td>{{ p.estoque_minimo }}</td>
-          <td class="text-danger">{{ p.estoque_minimo|add:"-0" }}</td>
+          <td class="text-danger fw-semibold">{{ p.deficit }}</td>
           <td>
-            <a href="{% url 'estoque:movimentacao_create' %}" class="btn btn-sm btn-success">
+            <a href="{% url 'estoque:movimentacao_create' %}?produto={{ p.pk }}"
+               class="btn btn-sm btn-success">
               <i class="bi bi-plus-circle"></i> Repor
             </a>
           </td>

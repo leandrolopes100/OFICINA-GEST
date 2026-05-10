@@ -1,62 +1,213 @@
 {% extends 'base.html' %}
 {% block title %}Clientes{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0 fw-bold"><i class="bi bi-people-fill text-primary"></i> Clientes</h4>
-  <a href="{% url 'clientes:create' %}" class="btn btn-primary btn-sm">
-    <i class="bi bi-plus-circle"></i> Novo Cliente
-  </a>
+  <h4 class="mb-0 fw-bold">
+    <i class="bi bi-people-fill text-primary"></i> Clientes
+    <small class="text-muted fs-6 fw-normal ms-1">
+      {% if inativos %}{{ total_inativos }} inativo{{ total_inativos|pluralize }}
+      {% else %}{{ total }} ativo{{ total|pluralize }}{% endif %}
+    </small>
+  </h4>
+  <div class="d-flex gap-2">
+    {% if inativos %}
+      <a href="{% url 'clientes:list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-people-fill"></i> Ver Ativos
+      </a>
+    {% else %}
+      {% if total_inativos %}
+      <a href="{% url 'clientes:list' %}?inativos=1" class="btn btn-outline-danger btn-sm">
+        <i class="bi bi-person-slash"></i> Inativos ({{ total_inativos }})
+      </a>
+      {% endif %}
+      <a href="{% url 'clientes:create' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle"></i> Novo Cliente
+      </a>
+    {% endif %}
+  </div>
 </div>
+
+{% if inativos %}
+<div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+  <div>Exibindo clientes <strong>inativos</strong>.
+    <a href="{% url 'clientes:list' %}" class="alert-link">Voltar para ativos</a>.
+  </div>
+</div>
+{% endif %}
+
 <div class="card">
   <div class="card-body">
     <form method="get" class="row g-2 mb-3">
+      {% if inativos %}<input type="hidden" name="inativos" value="1">{% endif %}
       <div class="col-md-6">
-        <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por nome, CPF/CNPJ, telefone...">
+        <input type="text" name="q" value="{{ q }}" class="form-control"
+               placeholder="Buscar por nome, CPF/CNPJ, telefone...">
       </div>
       <div class="col-auto">
         <button type="submit" class="btn btn-outline-primary">
           <i class="bi bi-search"></i> Buscar
         </button>
-        {% if q %}<a href="{% url 'clientes:list' %}" class="btn btn-outline-secondary">Limpar</a>{% endif %}
+        {% if q %}
+        <a href="{% url 'clientes:list' %}{% if inativos %}?inativos=1{% endif %}"
+           class="btn btn-outline-secondary">Limpar</a>
+        {% endif %}
       </div>
     </form>
+
     <div class="table-responsive">
-      <table class="table table-hover">
+      <table class="table table-hover align-middle">
         <thead class="table-light">
-          <tr><th>Nome</th><th>CPF/CNPJ</th><th>Telefone</th><th>Cidade</th><th>Veículos</th><th>Ações</th></tr>
+          <tr>
+            <th>Nome</th>
+            <th>CPF/CNPJ</th>
+            <th>Telefone</th>
+            <th>Cidade</th>
+            <th>Veículos</th>
+            <th>Ações</th>
+          </tr>
         </thead>
         <tbody>
           {% for cliente in clientes %}
           <tr>
-            <td><a href="{% url 'clientes:detail' cliente.pk %}" class="fw-semibold text-decoration-none">{{ cliente.nome }}</a></td>
+            <td>
+              <a href="{% url 'clientes:detail' cliente.pk %}"
+                 class="fw-semibold text-decoration-none">{{ cliente.nome }}</a>
+            </td>
             <td>{{ cliente.cpf_cnpj }}</td>
             <td>{{ cliente.telefone }}</td>
-            <td>{{ cliente.cidade }}/{{ cliente.estado }}</td>
-            <td><span class="badge bg-secondary">{{ cliente.veiculos.count }}</span></td>
+            <td>{{ cliente.cidade }}{% if cliente.estado %}/{{ cliente.estado }}{% endif %}</td>
+            <td><span class="badge bg-secondary">{{ cliente.num_veiculos }}</span></td>
             <td>
-              <a href="{% url 'clientes:detail' cliente.pk %}" class="btn btn-sm btn-outline-info" title="Ver"><i class="bi bi-eye"></i></a>
-              <a href="{% url 'clientes:update' cliente.pk %}" class="btn btn-sm btn-outline-warning" title="Editar"><i class="bi bi-pencil"></i></a>
+              {% if inativos %}
+                <a href="{% url 'clientes:detail' cliente.pk %}"
+                   class="btn btn-sm btn-outline-info" title="Ver"><i class="bi bi-eye"></i></a>
+                <button type="button"
+                        class="btn btn-sm btn-outline-success"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalToggleAtivo"
+                        data-url="{% url 'clientes:toggle_ativo' cliente.pk %}"
+                        data-nome="{{ cliente.nome|escapejs }}"
+                        data-ativo="0"
+                        data-next="{{ request.get_full_path }}"
+                        title="Reativar cliente">
+                  <i class="bi bi-arrow-counterclockwise"></i> Reativar
+                </button>
+              {% else %}
+                <a href="{% url 'clientes:detail' cliente.pk %}"
+                   class="btn btn-sm btn-outline-info" title="Ver"><i class="bi bi-eye"></i></a>
+                <a href="{% url 'clientes:update' cliente.pk %}"
+                   class="btn btn-sm btn-outline-warning" title="Editar"><i class="bi bi-pencil"></i></a>
+                <button type="button"
+                        class="btn btn-sm btn-outline-danger"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalToggleAtivo"
+                        data-url="{% url 'clientes:toggle_ativo' cliente.pk %}"
+                        data-nome="{{ cliente.nome|escapejs }}"
+                        data-ativo="1"
+                        data-next="{{ request.get_full_path }}"
+                        title="Desativar cliente">
+                  <i class="bi bi-person-slash"></i>
+                </button>
+              {% endif %}
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="6" class="text-center text-muted py-4">Nenhum cliente encontrado.</td></tr>
+          <tr>
+            <td colspan="6" class="text-center text-muted py-4">
+              {% if inativos %}Nenhum cliente inativo encontrado.
+              {% else %}Nenhum cliente encontrado.{% endif %}
+            </td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+
     {% if is_paginated %}
     <nav>
       <ul class="pagination pagination-sm justify-content-center">
         {% if page_obj.has_previous %}
-        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}">«</a></li>
+        <li class="page-item">
+          <a class="page-link"
+             href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if inativos %}&inativos=1{% endif %}">«</a>
+        </li>
         {% endif %}
-        <li class="page-item active"><a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a></li>
+        <li class="page-item active">
+          <a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a>
+        </li>
         {% if page_obj.has_next %}
-        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}">»</a></li>
+        <li class="page-item">
+          <a class="page-link"
+             href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if inativos %}&inativos=1{% endif %}">»</a>
+        </li>
         {% endif %}
       </ul>
     </nav>
     {% endif %}
   </div>
 </div>
+
+<!-- Modal unificado de confirmação de ativar/desativar -->
+<div class="modal fade" id="modalToggleAtivo" tabindex="-1"
+     aria-labelledby="modalToggleTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalToggleTitulo"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body" id="modalToggleBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg"></i> Cancelar
+        </button>
+        <form method="post" id="formToggleAtivo" class="d-inline">
+          {% csrf_token %}
+          <input type="hidden" name="next" id="modalToggleNext">
+          <button type="submit" id="modalToggleBtnConfirm" class="btn"></button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var modal = document.getElementById('modalToggleAtivo');
+  if (!modal) return;
+
+  modal.addEventListener('show.bs.modal', function (event) {
+    var btn    = event.relatedTarget;
+    var url    = btn.dataset.url;
+    var nome   = btn.dataset.nome;
+    var ativo  = btn.dataset.ativo === '1';
+    var next   = btn.dataset.next;
+
+    document.getElementById('formToggleAtivo').action = url;
+    document.getElementById('modalToggleNext').value  = next;
+
+    var titulo     = document.getElementById('modalToggleTitulo');
+    var body       = document.getElementById('modalToggleBody');
+    var btnConfirm = document.getElementById('modalToggleBtnConfirm');
+
+    if (ativo) {
+      titulo.textContent = 'Desativar Cliente';
+      body.innerHTML     = 'Deseja desativar o cliente <strong>' + nome + '</strong>?<br>'
+                         + '<small class="text-muted">Os dados históricos serão preservados e o cliente pode ser reativado a qualquer momento.</small>';
+      btnConfirm.textContent = 'Desativar';
+      btnConfirm.className   = 'btn btn-warning';
+    } else {
+      titulo.textContent = 'Reativar Cliente';
+      body.innerHTML     = 'Deseja reativar o cliente <strong>' + nome + '</strong>?<br>'
+                         + '<small class="text-muted">Ele voltará a aparecer em todo o sistema normalmente.</small>';
+      btnConfirm.textContent = 'Reativar';
+      btnConfirm.className   = 'btn btn-success';
+    }
+  });
+}());
+</script>
 {% endblock %}

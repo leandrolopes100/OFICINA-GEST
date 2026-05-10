@@ -1,0 +1,453 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }} — Oficina-Gest{% endblock %}
+
+{% block extra_css %}
+<style>
+  .item-row {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: .75rem;
+    position: relative;
+  }
+  .item-row.marcado-excluir {
+    opacity: .35;
+    pointer-events: none;
+  }
+  .btn-remover {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+  }
+  /* Campo peça só aparece quando tipo = PECA */
+  .campo-peca { display: none; }
+  .total-os { font-size: 1.4rem; font-weight: 700; color: #198754; }
+  .bloco-erros { border-left: 4px solid #dc3545; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+  <h1 class="h3 mb-0">
+    <i class="bi bi-clipboard-plus me-2"></i>{{ titulo }}
+  </h1>
+  <a href="/ordens/" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Cancelar
+  </a>
+</div>
+
+<!-- ERROS -->
+{% if form.errors or formset.non_form_errors %}
+<div class="alert alert-danger bloco-erros py-3 mb-4">
+  <p class="fw-bold mb-2">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>Corrija os erros abaixo:
+  </p>
+  <ul class="mb-0 ps-3">
+    {% for field in form %}{% for e in field.errors %}
+      <li><strong>{{ field.label }}:</strong> {{ e }}</li>
+    {% endfor %}{% endfor %}
+    {% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}
+    {% for e in formset.non_form_errors %}<li>{{ e }}</li>{% endfor %}
+    {% for f in formset %}{% for field in f %}{% for e in field.errors %}
+      <li><strong>Item {{ forloop.parentloop.parentloop.counter }} — {{ field.label }}:</strong> {{ e }}</li>
+    {% endfor %}{% endfor %}{% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<form method="post" id="os-form">
+  {% csrf_token %}
+  {{ formset.management_form }}
+
+  <div class="row g-4">
+
+    <!-- ── CLIENTE / VEÍCULO / MECÂNICO ──────────────────── -->
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light fw-semibold">
+          <i class="bi bi-person me-2"></i>Atribuição
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              Cliente <span class="text-danger">*</span>
+            </label>
+            {{ form.cliente }}
+            {% if form.cliente.errors %}
+              <div class="text-danger small mt-1">{{ form.cliente.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              Veículo <span class="text-danger">*</span>
+            </label>
+            {{ form.veiculo }}
+            {% if form.veiculo.errors %}
+              <div class="text-danger small mt-1">{{ form.veiculo.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+          <div class="mb-0">
+            <label class="form-label fw-semibold">Mecânico Responsável</label>
+            {{ form.mecanico_responsavel }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DATAS ──────────────────────────────────────────── -->
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light fw-semibold">
+          <i class="bi bi-calendar3 me-2"></i>Datas
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Quilometragem na Entrada (km)</label>
+            {{ form.quilometragem_entrada }}
+          </div>
+          <div class="mb-0">
+            <label class="form-label fw-semibold">Previsão de Entrega</label>
+            {{ form.data_previsao_entrega }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PROBLEMA / LAUDO ───────────────────────────────── -->
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light fw-semibold">
+          <i class="bi bi-chat-square-text me-2"></i>Problema Relatado
+        </div>
+        <div class="card-body">
+          {{ form.descricao_problema }}
+          {% if form.descricao_problema.errors %}
+            <div class="text-danger small mt-1">{{ form.descricao_problema.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light fw-semibold">
+          <i class="bi bi-file-medical me-2"></i>Laudo Técnico
+        </div>
+        <div class="card-body">{{ form.laudo_tecnico }}</div>
+      </div>
+    </div>
+
+    <!-- ── SERVIÇOS E PEÇAS ───────────────────────────────── -->
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <span class="fw-semibold">
+            <i class="bi bi-list-ul me-2"></i>Serviços e Peças
+          </span>
+          <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-item">
+            <i class="bi bi-plus-lg me-1"></i>Adicionar Item
+          </button>
+        </div>
+
+        <div class="card-body" id="itens-container">
+
+          {% for item_form in formset %}
+          <div class="item-row" data-idx="{{ forloop.counter0 }}">
+
+            <!-- DELETE oculto -->
+            <div class="d-none">{{ item_form.DELETE }}</div>
+            {% if item_form.instance.pk %}
+              <input type="hidden" name="{{ item_form.prefix }}-id"
+                     value="{{ item_form.instance.pk }}">
+            {% endif %}
+
+            <button type="button" class="btn btn-sm btn-outline-danger btn-remover"
+                    title="Remover item">
+              <i class="bi bi-trash3"></i>
+            </button>
+
+            <div class="row g-2 pe-5">
+
+              <!-- TIPO -->
+              <div class="col-md-2">
+                <label class="form-label small fw-semibold">Tipo</label>
+                {{ item_form.tipo }}
+              </div>
+
+              <!-- PEÇA DO ESTOQUE — só aparece quando tipo = PECA -->
+              <div class="col-md-3 campo-peca">
+                <label class="form-label small fw-semibold">
+                  Peça do Estoque
+                  <span class="text-muted fw-normal">(opcional)</span>
+                </label>
+                {{ item_form.peca }}
+              </div>
+
+              <!-- DESCRIÇÃO — sempre visível -->
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">
+                  Descrição <span class="text-danger">*</span>
+                </label>
+                {{ item_form.descricao }}
+                {% if item_form.descricao.errors %}
+                  <div class="text-danger small">{{ item_form.descricao.errors|join:", " }}</div>
+                {% endif %}
+              </div>
+
+              <!-- QUANTIDADE -->
+              <div class="col-md-1" style="min-width:80px">
+                <label class="form-label small fw-semibold">Qtd</label>
+                {{ item_form.quantidade }}
+              </div>
+
+              <!-- PREÇO UNITÁRIO -->
+              <div class="col-md-2">
+                <label class="form-label small fw-semibold">Preço (R$)</label>
+                {{ item_form.preco_unitario }}
+              </div>
+
+            </div>
+          </div>
+          {% endfor %}
+
+        </div><!-- /itens-container -->
+
+        <!-- Total preview -->
+        <div class="card-footer bg-light d-flex justify-content-end align-items-center gap-3">
+          <span class="text-muted">Total estimado:</span>
+          <span class="total-os" id="total-os">R$ 0,00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DESCONTO / OBSERVAÇÕES ─────────────────────────── -->
+    <div class="col-md-3">
+      <label class="form-label fw-semibold">Desconto (R$)</label>
+      {{ form.desconto_valor }}
+    </div>
+    <div class="col-md-4">
+      <label class="form-label fw-semibold">Observações Internas</label>
+      {{ form.observacoes_internas }}
+    </div>
+    <div class="col-md-5">
+      <label class="form-label fw-semibold">Observações para o Cliente</label>
+      {{ form.observacoes_cliente }}
+    </div>
+
+    <!-- ── BOTÕES ─────────────────────────────────────────── -->
+    <div class="col-12 d-flex justify-content-end gap-2 mb-2">
+      <a href="/ordens/" class="btn btn-outline-secondary btn-lg">Cancelar</a>
+      <button type="submit" class="btn btn-primary btn-lg px-5">
+        <i class="bi bi-floppy me-2"></i>Salvar OS
+      </button>
+    </div>
+
+  </div>
+</form>
+
+<!-- Template HTML para novo item -->
+<template id="tmpl-item">
+  <div class="item-row" data-idx="__IDX__">
+    <div class="d-none">
+      <input type="checkbox"
+             name="itens-__IDX__-DELETE"
+             id="id_itens-__IDX__-DELETE">
+    </div>
+    <button type="button"
+            class="btn btn-sm btn-outline-danger btn-remover"
+            title="Remover item">
+      <i class="bi bi-trash3"></i>
+    </button>
+    <div class="row g-2 pe-5">
+
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Tipo</label>
+        <select name="itens-__IDX__-tipo" class="form-select sel-tipo">
+          <option value="SERVICO" selected>Serviço</option>
+          <option value="PECA">Peça / Produto</option>
+        </select>
+      </div>
+
+      <div class="col-md-3 campo-peca" style="display:none">
+        <label class="form-label small fw-semibold">
+          Peça do Estoque
+          <span class="text-muted fw-normal">(opcional)</span>
+        </label>
+        <select name="itens-__IDX__-peca" class="form-select sel-peca">
+          <option value="">— selecione —</option>
+          __OPCOES_PECA__
+        </select>
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label small fw-semibold">
+          Descrição <span class="text-danger">*</span>
+        </label>
+        <input type="text"
+               name="itens-__IDX__-descricao"
+               class="form-control"
+               placeholder="Descreva o serviço ou peça">
+      </div>
+
+      <div class="col-md-1" style="min-width:80px">
+        <label class="form-label small fw-semibold">Qtd</label>
+        <input type="number"
+               name="itens-__IDX__-quantidade"
+               class="form-control inp-qtd"
+               value="1" step="0.01" min="0.01">
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Preço (R$)</label>
+        <input type="number"
+               name="itens-__IDX__-preco_unitario"
+               class="form-control inp-preco"
+               value="0" step="0.01" min="0"
+               placeholder="0.00">
+      </div>
+
+    </div>
+  </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Opções de peças para novos itens ────────────────────────
+const OPCOES_PECA_HTML = `{% for p in form.fields.peca.queryset %}<option value="{{ p.pk }}" data-preco="{{ p.preco_venda }}" data-nome="{{ p.nome }}">{{ p.nome }} (R$ {{ p.preco_venda|floatformat:2 }})</option>{% endfor %}`;
+
+// ─────────────────────────────────────────────────────────────
+// TOGGLE: mostra campo-peca apenas quando tipo = PECA
+// ─────────────────────────────────────────────────────────────
+function aplicarToggleTipo(row) {
+  const selTipo   = row.querySelector('select[name$="-tipo"]');
+  const campoPeca = row.querySelector('.campo-peca');
+
+  if (!selTipo || !campoPeca) return;
+
+  function atualizar() {
+    if (selTipo.value === 'PECA') {
+      campoPeca.style.display = '';   // mostra
+    } else {
+      campoPeca.style.display = 'none'; // esconde
+      // Limpa a seleção de peça ao trocar para serviço
+      const selPeca = campoPeca.querySelector('select');
+      if (selPeca) selPeca.value = '';
+    }
+  }
+
+  selTipo.addEventListener('change', atualizar);
+  atualizar(); // aplica na carga inicial (para edição)
+}
+
+// ─────────────────────────────────────────────────────────────
+// AUTO-PREENCHE descrição e preço ao selecionar uma peça
+// ─────────────────────────────────────────────────────────────
+function aplicarAutoPeca(row) {
+  const selPeca = row.querySelector('select[name$="-peca"]');
+  if (!selPeca) return;
+
+  selPeca.addEventListener('change', function () {
+    const opt = this.options[this.selectedIndex];
+    if (!opt || !opt.value) return;
+
+    const nome  = opt.dataset.nome  || opt.text.split(' (R$')[0];
+    const preco = opt.dataset.preco || '0';
+
+    const inpDesc  = row.querySelector('input[name$="-descricao"]');
+    const inpPreco = row.querySelector('input[name$="-preco_unitario"]');
+
+    // Só preenche se o campo estiver vazio
+    if (inpDesc  && !inpDesc.value.trim())  inpDesc.value  = nome;
+    if (inpPreco && (!inpPreco.value || inpPreco.value === '0'))
+      inpPreco.value = preco;
+
+    calcTotal();
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// BOTÃO REMOVER
+// ─────────────────────────────────────────────────────────────
+function aplicarRemover(row) {
+  const btn = row.querySelector('.btn-remover');
+  if (!btn) return;
+
+  btn.addEventListener('click', function () {
+    const chk = row.querySelector('input[name$="-DELETE"]');
+    if (chk) {
+      chk.checked = true;
+      row.classList.add('marcado-excluir');
+    } else {
+      row.remove();
+    }
+    calcTotal();
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// CÁLCULO DO TOTAL EM TEMPO REAL
+// ─────────────────────────────────────────────────────────────
+function calcTotal() {
+  let total = 0;
+  document.querySelectorAll('.item-row:not(.marcado-excluir)').forEach(row => {
+    const preco = parseFloat(row.querySelector('input[name$="-preco_unitario"]')?.value) || 0;
+    const qtd   = parseFloat(row.querySelector('input[name$="-quantidade"]')?.value)     || 1;
+    total += preco * qtd;
+  });
+
+  const desconto = parseFloat(document.querySelector('[name="desconto_valor"]')?.value) || 0;
+  const final    = Math.max(0, total - desconto);
+
+  document.getElementById('total-os').textContent =
+    'R$ ' + final.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+}
+
+// ─────────────────────────────────────────────────────────────
+// BIND COMPLETO em uma linha
+// ─────────────────────────────────────────────────────────────
+function bindItem(row) {
+  aplicarToggleTipo(row);
+  aplicarAutoPeca(row);
+  aplicarRemover(row);
+  row.querySelectorAll('input, select').forEach(el =>
+    el.addEventListener('input', calcTotal)
+  );
+}
+
+// Inicializa as linhas já existentes (na criação há 1 linha extra vazia)
+document.querySelectorAll('.item-row').forEach(bindItem);
+
+// ─────────────────────────────────────────────────────────────
+// ADICIONAR NOVO ITEM
+// ─────────────────────────────────────────────────────────────
+let totalForms = parseInt(document.querySelector('[name="itens-TOTAL_FORMS"]').value);
+
+document.getElementById('btn-add-item').addEventListener('click', function () {
+  const tmpl = document.getElementById('tmpl-item');
+  const html = tmpl.innerHTML
+    .replace(/__IDX__/g,         totalForms)
+    .replace(/__OPCOES_PECA__/g, OPCOES_PECA_HTML);
+
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = html;
+  const novoItem = wrapper.firstElementChild;
+
+  document.getElementById('itens-container').appendChild(novoItem);
+  document.querySelector('[name="itens-TOTAL_FORMS"]').value = ++totalForms;
+
+  bindItem(novoItem);
+  novoItem.querySelector('input[name$="-descricao"]')?.focus();
+});
+
+// Desconto afeta total
+document.querySelector('[name="desconto_valor"]')?.addEventListener('input', calcTotal);
+
+// Scroll para erros
+document.querySelector('.bloco-erros')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+// Calcula ao carregar (para edição)
+calcTotal();
+</script>
+{% endblock %}

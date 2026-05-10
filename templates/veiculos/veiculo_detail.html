@@ -4,19 +4,50 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0 fw-bold"><i class="bi bi-car-front-fill text-primary"></i> {{ veiculo.placa }} — {{ veiculo.modelo }}</h4>
-  <div>
-    <a href="{% url 'veiculos:update' veiculo.pk %}" class="btn btn-warning btn-sm"><i class="bi bi-pencil"></i> Editar</a>
-    <a href="{% url 'orcamentos:create' %}" class="btn btn-info btn-sm"><i class="bi bi-file-earmark-plus"></i> Novo Orçamento</a>
-    <a href="{% url 'veiculos:list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Voltar</a>
+  <div class="d-flex gap-2">
+    <a href="{% url 'veiculos:update' veiculo.pk %}" class="btn btn-warning btn-sm">
+      <i class="bi bi-pencil"></i> Editar
+    </a>
+    {% if veiculo.cliente.ativo %}
+    <a href="{% url 'orcamentos:create' %}?cliente={{ veiculo.cliente.pk }}&veiculo={{ veiculo.pk }}"
+       class="btn btn-info btn-sm">
+      <i class="bi bi-file-earmark-plus"></i> Novo Orçamento
+    </a>
+    <a href="{% url 'ordens_servico:os_criar' %}?cliente={{ veiculo.cliente.pk }}&veiculo={{ veiculo.pk }}"
+       class="btn btn-success btn-sm">
+      <i class="bi bi-clipboard2-plus"></i> Nova OS
+    </a>
+    {% endif %}
+    <a href="{% url 'veiculos:list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Voltar
+    </a>
   </div>
 </div>
+
+{% if not veiculo.cliente.ativo %}
+<div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+  <i class="bi bi-exclamation-triangle-fill me-2 flex-shrink-0"></i>
+  <div>
+    O cliente <strong>{{ veiculo.cliente.nome }}</strong> está <strong>inativo</strong>.
+    Não é possível criar novos orçamentos ou ordens de serviço para este veículo.
+    <a href="{% url 'clientes:detail' veiculo.cliente.pk %}" class="alert-link ms-1">Ver cliente</a>
+  </div>
+</div>
+{% endif %}
+
 <div class="row g-3">
   <div class="col-md-4">
     <div class="card">
       <div class="card-header">Dados do Veículo</div>
       <div class="card-body">
         <dl class="row mb-0 small">
-          <dt class="col-5">Cliente</dt><dd class="col-7"><a href="{% url 'clientes:detail' veiculo.cliente.pk %}">{{ veiculo.cliente.nome }}</a></dd>
+          <dt class="col-5">Cliente</dt>
+          <dd class="col-7">
+            <a href="{% url 'clientes:detail' veiculo.cliente.pk %}">{{ veiculo.cliente.nome }}</a>
+            {% if not veiculo.cliente.ativo %}
+            <span class="badge bg-secondary ms-1" style="font-size:.6rem">Inativo</span>
+            {% endif %}
+          </dd>
           <dt class="col-5">Marca/Modelo</dt><dd class="col-7">{{ veiculo.modelo }}</dd>
           <dt class="col-5">Ano Fab/Mod</dt><dd class="col-7">{{ veiculo.ano_fabricacao }}/{{ veiculo.ano_modelo }}</dd>
           <dt class="col-5">Cor</dt><dd class="col-7">{{ veiculo.cor }}</dd>
@@ -24,26 +55,68 @@
           <dt class="col-5">RENAVAM</dt><dd class="col-7">{{ veiculo.renavam|default:"—" }}</dd>
           <dt class="col-5">Chassi</dt><dd class="col-7">{{ veiculo.chassi|default:"—" }}</dd>
           <dt class="col-5">KM Atual</dt><dd class="col-7">{{ veiculo.km_atual|floatformat:0 }} km</dd>
-          {% if veiculo.km_proxima_revisao %}<dt class="col-5">Próx. Revisão</dt><dd class="col-7">{{ veiculo.km_proxima_revisao }} km</dd>{% endif %}
-          {% if veiculo.data_proxima_revisao %}<dt class="col-5">Data Revisão</dt><dd class="col-7">{{ veiculo.data_proxima_revisao|date:"d/m/Y" }}</dd>{% endif %}
+          {% if veiculo.km_proxima_revisao %}
+          <dt class="col-5">Próx. Revisão</dt><dd class="col-7">{{ veiculo.km_proxima_revisao }} km</dd>
+          {% endif %}
+          {% if veiculo.data_proxima_revisao %}
+          <dt class="col-5">Data Revisão</dt><dd class="col-7">{{ veiculo.data_proxima_revisao|date:"d/m/Y" }}</dd>
+          {% endif %}
         </dl>
       </div>
     </div>
   </div>
+
   <div class="col-md-8">
     <div class="card mb-3">
-      <div class="card-header d-flex justify-content-between">Histórico de OS<a href="{% url 'ordens_servico:create' %}" class="small">Nova OS</a></div>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Histórico de OS</span>
+        {% if veiculo.cliente.ativo %}
+        <a href="{% url 'ordens_servico:os_criar' %}?cliente={{ veiculo.cliente.pk }}&veiculo={{ veiculo.pk }}"
+           class="small text-decoration-none">
+          <i class="bi bi-plus-lg"></i> Nova OS
+        </a>
+        {% endif %}
+      </div>
       <div class="card-body p-0">
         <div class="list-group list-group-flush">
           {% for os in ordens %}
-          <a href="{% url 'ordens_servico:detail' os.pk %}" class="list-group-item list-group-item-action">
+          <a href="{% url 'ordens_servico:os_detalhe' os.pk %}" class="list-group-item list-group-item-action">
             <div class="d-flex justify-content-between">
               <span class="fw-semibold">{{ os }}</span>
               <span class="badge bg-{{ os.status|status_badge }}">{{ os.get_status_display }}</span>
             </div>
             <small class="text-muted">{{ os.data_abertura|date:"d/m/Y" }} · KM {{ os.km_entrada }} · {{ os.total|currency }}</small>
           </a>
-          {% empty %}<div class="list-group-item text-muted small">Nenhuma OS registrada para este veículo.</div>{% endfor %}
+          {% empty %}
+          <div class="list-group-item text-muted small">Nenhuma OS registrada para este veículo.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Orçamentos</span>
+        {% if veiculo.cliente.ativo %}
+        <a href="{% url 'orcamentos:create' %}?cliente={{ veiculo.cliente.pk }}&veiculo={{ veiculo.pk }}"
+           class="small text-decoration-none">
+          <i class="bi bi-plus-lg"></i> Novo Orçamento
+        </a>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        <div class="list-group list-group-flush">
+          {% for orc in orcamentos %}
+          <a href="{% url 'orcamentos:detail' orc.pk %}" class="list-group-item list-group-item-action">
+            <div class="d-flex justify-content-between">
+              <span class="fw-semibold">{{ orc }}</span>
+              <span class="badge bg-{{ orc.status|status_badge }}">{{ orc.get_status_display }}</span>
+            </div>
+            <small class="text-muted">{{ orc.data_criacao|date:"d/m/Y" }} · {{ orc.total|currency }}</small>
+          </a>
+          {% empty %}
+          <div class="list-group-item text-muted small">Nenhum orçamento registrado para este veículo.</div>
+          {% endfor %}
         </div>
       </div>
     </div>

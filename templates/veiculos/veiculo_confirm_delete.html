@@ -1,14 +1,140 @@
 {% extends 'base.html' %}
-{% block title %}Desativar Veículo{% endblock %}
+{% block title %}Remover Veículo — {{ veiculo.placa }}{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center mt-4"><div class="col-md-6">
-  <div class="card"><div class="card-body text-center p-4">
-    <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size:3rem"></i>
-    <h5 class="mt-3">Desativar veículo {{ object.placa }}?</h5>
-    <form method="post">{% csrf_token %}
-      <button type="submit" class="btn btn-warning me-2">Confirmar</button>
-      <a href="{% url 'veiculos:detail' object.pk %}" class="btn btn-outline-secondary">Cancelar</a>
+<div class="row justify-content-center">
+  <div class="col-md-7">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="mb-0 fw-bold">
+        <i class="bi bi-trash text-danger"></i> Remover Veículo
+      </h4>
+      <a href="{% url 'veiculos:list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Voltar
+      </a>
+    </div>
+
+    {# ── Dados do veículo ── #}
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Veículo</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-4">Placa</dt>
+          <dd class="col-8 fw-bold">{{ veiculo.placa }}</dd>
+          <dt class="col-4">Modelo</dt>
+          <dd class="col-8">{{ veiculo.modelo }}</dd>
+          <dt class="col-4">Ano</dt>
+          <dd class="col-8">{{ veiculo.ano_modelo }}</dd>
+          <dt class="col-4">Cliente</dt>
+          <dd class="col-8">{{ veiculo.cliente.nome }}</dd>
+          <dt class="col-4">Combustível</dt>
+          <dd class="col-8">{{ veiculo.get_combustivel_display }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    {# ══ COM histórico → só inativar ══ #}
+    {% if tem_historico %}
+
+    <div class="alert alert-warning d-flex gap-2">
+      <i class="bi bi-shield-lock-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        <strong>Exclusão permanente não permitida.</strong><br>
+        Este veículo está vinculado a registros do sistema e não pode ser deletado
+        sem comprometer o histórico de serviços e orçamentos.
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header fw-semibold small">Registros vinculados</div>
+      <div class="card-body small">
+        <ul class="mb-0">
+          {% if n_os %}
+          <li><i class="bi bi-clipboard2-check text-success"></i>
+            <strong>{{ n_os }}</strong> ordem{{ n_os|pluralize }} de serviço</li>
+          {% endif %}
+          {% if n_orcamentos %}
+          <li><i class="bi bi-file-earmark-text text-info"></i>
+            <strong>{{ n_orcamentos }}</strong> orçamento{{ n_orcamentos|pluralize }}</li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+
+    <div class="alert alert-info d-flex gap-2">
+      <i class="bi bi-info-circle-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        <strong>Recomendação: Inativar o veículo.</strong><br>
+        O veículo deixará de aparecer em novas OS e orçamentos,
+        mas todo o histórico é preservado.
+      </div>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="inativar">
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-warning">
+          <i class="bi bi-eye-slash"></i> Inativar veículo
+        </button>
+        <a href="{% url 'veiculos:list' %}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
     </form>
-  </div></div>
-</div></div>
+
+    {# ══ SEM histórico → excluir ou inativar ══ #}
+    {% else %}
+
+    <div class="alert alert-success d-flex gap-2">
+      <i class="bi bi-check-circle-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        Este veículo <strong>não possui histórico</strong> vinculado.
+        Você pode excluí-lo permanentemente ou apenas inativá-lo.
+      </div>
+    </div>
+
+    <div class="card border-danger mb-3">
+      <div class="card-header text-danger fw-semibold">
+        <i class="bi bi-trash"></i> Excluir permanentemente
+      </div>
+      <div class="card-body">
+        <p class="small text-danger mb-3">
+          <strong>Atenção:</strong> esta ação <strong>não pode ser desfeita</strong>.
+          O veículo será removido definitivamente do banco de dados.
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="excluir">
+          <button type="submit" class="btn btn-danger"
+                  onclick="return confirm('Confirma a exclusão permanente do veículo {{ veiculo.placa }}?')">
+            <i class="bi bi-trash"></i> Excluir permanentemente
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-eye-slash"></i> Apenas inativar
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-3">
+          O veículo é ocultado das listas e seleções, mas permanece no banco
+          (útil se quiser reativá-lo no futuro via Editar).
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="inativar">
+          <button type="submit" class="btn btn-warning">
+            <i class="bi bi-eye-slash"></i> Inativar veículo
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <a href="{% url 'veiculos:list' %}" class="btn btn-outline-secondary">Cancelar</a>
+
+    {% endif %}
+
+  </div>
+</div>
 {% endblock %}

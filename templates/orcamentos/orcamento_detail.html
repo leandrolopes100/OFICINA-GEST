@@ -6,16 +6,76 @@
   <h4 class="mb-0 fw-bold"><i class="bi bi-file-earmark-text-fill text-primary"></i> ORC-{{ orcamento.numero }}
     <span class="badge bg-{{ orcamento.status|status_badge }} ms-2">{{ orcamento.get_status_display }}</span>
   </h4>
-  <div class="d-flex gap-1">
-    {% if orcamento.pode_editar %}<a href="{% url 'orcamentos:update' orcamento.pk %}" class="btn btn-warning btn-sm"><i class="bi bi-pencil"></i> Editar</a>{% endif %}
-    {% if orcamento.status == 'rascunho' %}<a href="{% url 'orcamentos:enviar' orcamento.pk %}" class="btn btn-info btn-sm"><i class="bi bi-send"></i> Enviar</a>{% endif %}
-    {% if orcamento.status == 'enviado' %}
-    <a href="{% url 'orcamentos:aprovar' orcamento.pk %}" class="btn btn-success btn-sm"><i class="bi bi-check-circle"></i> Aprovar</a>
-    <a href="{% url 'orcamentos:reprovar' orcamento.pk %}" class="btn btn-danger btn-sm"><i class="bi bi-x-circle"></i> Reprovar</a>
+  <div class="d-flex gap-2 align-items-center">
+
+    {# ── Ação primária — muda conforme o status ── #}
+    {% if orcamento.status == 'rascunho' %}
+    <form method="post" action="{% url 'orcamentos:enviar' orcamento.pk %}" class="d-inline">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-info btn-sm">
+        <i class="bi bi-send"></i> Enviar ao Cliente
+      </button>
+    </form>
+    {% elif orcamento.status == 'enviado' %}
+    <form method="post" action="{% url 'orcamentos:aprovar' orcamento.pk %}" class="d-inline">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-success btn-sm">
+        <i class="bi bi-check-circle"></i> Aprovar
+      </button>
+    </form>
+    {% elif orcamento.pode_gerar_os %}
+    <button type="button" class="btn btn-primary btn-sm"
+            data-bs-toggle="modal" data-bs-target="#modalGerarOS">
+      <i class="bi bi-clipboard2-plus"></i> Gerar OS
+    </button>
     {% endif %}
-    {% if orcamento.pode_gerar_os %}<a href="{% url 'orcamentos:gerar_os' orcamento.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-clipboard2-plus"></i> Gerar OS</a>{% endif %}
-    <a href="{% url 'orcamentos:pdf' orcamento.pk %}" class="btn btn-outline-danger btn-sm" target="_blank"><i class="bi bi-file-pdf"></i> PDF</a>
-    <a href="{% url 'orcamentos:list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i></a>
+
+    {# ── Ações secundárias em dropdown ── #}
+    <div class="dropdown">
+      <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+              data-bs-toggle="dropdown" aria-expanded="false">
+        Mais ações
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        {% if orcamento.pode_editar %}
+        <li>
+          <a class="dropdown-item" href="{% url 'orcamentos:update' orcamento.pk %}">
+            <i class="bi bi-pencil me-2"></i>Editar
+          </a>
+        </li>
+        {% endif %}
+        {% if orcamento.status == 'rascunho' %}
+        <li>
+          <form method="post" action="{% url 'orcamentos:aprovar' orcamento.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="dropdown-item">
+              <i class="bi bi-check-circle me-2 text-success"></i>Aprovar diretamente
+            </button>
+          </form>
+        </li>
+        {% endif %}
+        {% if orcamento.status == 'enviado' %}
+        <li>
+          <form method="post" action="{% url 'orcamentos:reprovar' orcamento.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="dropdown-item text-danger">
+              <i class="bi bi-x-circle me-2"></i>Reprovar
+            </button>
+          </form>
+        </li>
+        {% endif %}
+        <li><hr class="dropdown-divider"></li>
+        <li>
+          <a class="dropdown-item" href="{% url 'orcamentos:imprimir' orcamento.pk %}" target="_blank">
+            <i class="bi bi-printer me-2 text-primary"></i>Imprimir Orçamento
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <a href="{% url 'orcamentos:list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i>
+    </a>
   </div>
 </div>
 <div class="row g-3">
@@ -83,4 +143,68 @@
     {% endif %}
   </div>
 </div>
+
+{% if historico_list %}
+{# ── Histórico de alterações ── #}
+<div class="row mt-3">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-clock-history text-secondary"></i> Histórico
+      </div>
+      <div class="card-body p-0">
+        <ul class="list-group list-group-flush">
+          {% for h in historico_list %}
+          <li class="list-group-item px-3 py-2">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div>
+                <span class="badge bg-{{ h.tipo|historico_badge }} me-1" style="font-size:.65rem">{{ h.get_tipo_display }}</span>
+                <span class="small">{{ h.descricao }}</span>
+              </div>
+              <div class="text-muted text-nowrap" style="font-size:.75rem">
+                <div>{{ h.criado_em|date:"d/m/Y H:i" }}</div>
+                {% if h.usuario %}<div>{{ h.usuario.get_full_name|default:h.usuario.username }}</div>{% endif %}
+              </div>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if orcamento.pode_gerar_os %}
+<div class="modal fade" id="modalGerarOS" tabindex="-1" aria-labelledby="modalGerarOSTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalGerarOSTitulo">
+          <i class="bi bi-clipboard2-plus text-primary"></i> Gerar Ordem de Serviço
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <p>Deseja gerar uma OS a partir do <strong>{{ orcamento }}</strong>?</p>
+        <div class="alert alert-info py-2 small mb-0">
+          <i class="bi bi-info-circle me-1"></i>
+          Todos os serviços e peças do orçamento serão copiados automaticamente para a nova OS.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg"></i> Cancelar
+        </button>
+        <form method="post" action="{% url 'orcamentos:gerar_os' orcamento.pk %}" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-clipboard2-plus"></i> Confirmar e Gerar OS
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

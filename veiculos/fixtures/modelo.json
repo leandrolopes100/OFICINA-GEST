@@ -1,0 +1,162 @@
+[
+  {
+    "model": "veiculos.modelo",
+    "pk": 1,
+    "fields": {
+      "marca": 19,
+      "nome": "Gol"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 2,
+    "fields": {
+      "marca": 19,
+      "nome": "Voyage"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 3,
+    "fields": {
+      "marca": 19,
+      "nome": "Polo"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 4,
+    "fields": {
+      "marca": 6,
+      "nome": "Uno"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 5,
+    "fields": {
+      "marca": 6,
+      "nome": "Argo"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 6,
+    "fields": {
+      "marca": 6,
+      "nome": "Strada"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 7,
+    "fields": {
+      "marca": 4,
+      "nome": "Onix"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 8,
+    "fields": {
+      "marca": 4,
+      "nome": "Cruze"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 9,
+    "fields": {
+      "marca": 7,
+      "nome": "Ka"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 10,
+    "fields": {
+      "marca": 7,
+      "nome": "Ranger"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 11,
+    "fields": {
+      "marca": 18,
+      "nome": "Corolla"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 12,
+    "fields": {
+      "marca": 18,
+      "nome": "Hilux"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 13,
+    "fields": {
+      "marca": 9,
+      "nome": "Civic"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 14,
+    "fields": {
+      "marca": 9,
+      "nome": "HR-V"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 15,
+    "fields": {
+      "marca": 10,
+      "nome": "HB20"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 16,
+    "fields": {
+      "marca": 10,
+      "nome": "Creta"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 17,
+    "fields": {
+      "marca": 17,
+      "nome": "Kwid"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 18,
+    "fields": {
+      "marca": 17,
+      "nome": "Duster"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 19,
+    "fields": {
+      "marca": 11,
+      "nome": "Compass"
+    }
+  },
+  {
+    "model": "veiculos.modelo",
+    "pk": 20,
+    "fields": {
+      "marca": 11,
+      "nome": "Renegade"
+    }
+  }
+]

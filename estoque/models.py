@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 
 
 class Fornecedor(models.Model):
@@ -43,7 +43,7 @@ class Produto(models.Model):
         ('pc', 'Peça'),
     ]
     codigo = models.CharField('Código', max_length=50, unique=True)
-    nome = models.CharField('Nome', max_length=200)
+    nome = models.CharField('Nome', max_length=200, db_index=True)
     descricao = models.TextField('Descrição', blank=True)
     categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True, blank=True, related_name='produtos')
     fornecedor = models.ForeignKey(Fornecedor, on_delete=models.SET_NULL, null=True, blank=True, related_name='produtos')
@@ -51,11 +51,11 @@ class Produto(models.Model):
     preco_venda = models.DecimalField('Preço de Venda', max_digits=10, decimal_places=2, default=0)
     margem_lucro = models.DecimalField('Margem de Lucro (%)', max_digits=5, decimal_places=2, default=0)
     unidade = models.CharField('Unidade', max_length=2, choices=UNIDADE_CHOICES, default='un')
-    estoque_atual = models.DecimalField('Estoque Atual', max_digits=10, decimal_places=3, default=0)
+    estoque_atual = models.DecimalField('Estoque Atual', max_digits=10, decimal_places=3, default=0, db_index=True)
     estoque_minimo = models.DecimalField('Estoque Mínimo', max_digits=10, decimal_places=3, default=0)
     estoque_maximo = models.DecimalField('Estoque Máximo', max_digits=10, decimal_places=3, default=0)
     localizacao = models.CharField('Localização', max_length=50, blank=True)
-    ativo = models.BooleanField('Ativo', default=True)
+    ativo = models.BooleanField('Ativo', default=True, db_index=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -63,6 +63,10 @@ class Produto(models.Model):
         verbose_name = 'Produto'
         verbose_name_plural = 'Produtos'
         ordering = ['nome']
+        indexes = [
+            models.Index(fields=['ativo', 'estoque_atual'], name='produto_ativo_estoque_idx'),
+            models.Index(fields=['ativo', 'nome'], name='produto_ativo_nome_idx'),
+        ]
 
     def __str__(self):
         return f'[{self.codigo}] {self.nome}'
@@ -104,12 +108,59 @@ class MovimentacaoEstoque(models.Model):
         return f'{self.get_tipo_display()} — {self.produto} ({self.quantidade})'
 
     def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        produto = Produto.objects.select_for_update().get(pk=self.produto_id)
-        if self.tipo in ('entrada', 'devolucao'):
-            produto.estoque_atual += self.quantidade
-        elif self.tipo == 'saida':
-            produto.estoque_atual -= self.quantidade
-        elif self.tipo == 'ajuste':
-            produto.estoque_atual = self.quantidade
-        produto.save(update_fields=['estoque_atual'])
+        from decimal import Decimal, ROUND_HALF_UP
+
+        # Prepara observação automática para movimentações de ajuste
+        if self.pk is None and self.tipo == 'ajuste' and not self.observacao:
+            try:
+                anterior = Produto.objects.values_list(
+                    'estoque_atual', flat=True
+                ).get(pk=self.produto_id)
+                diferenca = self.quantidade - anterior
+                sinal     = '+' if diferenca >= 0 else ''
+                self.observacao = (
+                    f'Inventário físico: de {float(anterior):g} para '
+                    f'{float(self.quantidade):g} unidade(s) '
+                    f'(diferença: {sinal}{float(diferenca):g})'
+                )
+            except Produto.DoesNotExist:
+                pass
+
+        # Envolve o INSERT da movimentação e o UPDATE do estoque numa transação
+        # atômica com select_for_update() — agora com PostgreSQL, o lock de linha
+        # real previne race conditions em movimentações simultâneas.
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            produto = Produto.objects.select_for_update().get(pk=self.produto_id)
+
+            # Bloqueia saída com estoque insuficiente
+            if self.tipo == 'saida' and produto.estoque_atual < self.quantidade:
+                raise ValueError(
+                    f'Estoque insuficiente para "{produto.nome}": '
+                    f'disponível {float(produto.estoque_atual):g}, '
+                    f'solicitado {float(self.quantidade):g}.'
+                )
+
+            # Atualiza estoque
+            if self.tipo in ('entrada', 'devolucao'):
+                produto.estoque_atual += self.quantidade
+            elif self.tipo == 'saida':
+                produto.estoque_atual -= self.quantidade
+            elif self.tipo == 'ajuste':
+                produto.estoque_atual = self.quantidade
+
+            # Atualiza custo e recalcula preço de venda em novas entradas com custo diferente
+            update_fields = ['estoque_atual']
+            novo_custo = self.custo_unitario
+            if (self.tipo == 'entrada'
+                    and novo_custo > 0
+                    and novo_custo != produto.preco_custo):
+                produto.preco_custo = novo_custo
+                update_fields.append('preco_custo')
+                if produto.margem_lucro > 0:
+                    produto.preco_venda = (
+                        novo_custo * (1 + produto.margem_lucro / Decimal('100'))
+                    ).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                    update_fields.append('preco_venda')
+
+            produto.save(update_fields=update_fields)

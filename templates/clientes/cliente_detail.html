@@ -1,28 +1,107 @@
 {% extends 'base.html' %}
 {% load oficina_tags %}
 {% block title %}{{ cliente.nome }}{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0 fw-bold"><i class="bi bi-person-fill text-primary"></i> {{ cliente.nome }}</h4>
-  <div>
-    <a href="{% url 'clientes:update' cliente.pk %}" class="btn btn-warning btn-sm"><i class="bi bi-pencil"></i> Editar</a>
-    <a href="{% url 'veiculos:create' %}?cliente={{ cliente.pk }}" class="btn btn-success btn-sm"><i class="bi bi-plus"></i> Novo Veículo</a>
-    <a href="{% url 'clientes:list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Voltar</a>
+  <h4 class="mb-0 fw-bold">
+    <i class="bi bi-person-fill text-primary"></i> {{ cliente.nome }}
+    {% if cliente.ativo %}
+      <span class="badge bg-success ms-1" style="font-size:.6rem;vertical-align:middle">Ativo</span>
+    {% else %}
+      <span class="badge bg-danger ms-1" style="font-size:.6rem;vertical-align:middle">Inativo</span>
+    {% endif %}
+  </h4>
+  <div class="d-flex gap-2">
+    {% if cliente.ativo %}
+      <a href="{% url 'clientes:update' cliente.pk %}" class="btn btn-warning btn-sm">
+        <i class="bi bi-pencil"></i> Editar
+      </a>
+      <a href="{% url 'veiculos:create' %}?cliente={{ cliente.pk }}" class="btn btn-success btn-sm">
+        <i class="bi bi-plus"></i> Novo Veículo
+      </a>
+      <button type="button"
+              class="btn btn-outline-danger btn-sm"
+              data-bs-toggle="modal"
+              data-bs-target="#modalToggleAtivo"
+              data-url="{% url 'clientes:toggle_ativo' cliente.pk %}"
+              data-nome="{{ cliente.nome|escapejs }}"
+              data-ativo="1"
+              data-next="{% url 'clientes:detail' cliente.pk %}">
+        <i class="bi bi-person-slash"></i> Desativar
+      </button>
+    {% else %}
+      <button type="button"
+              class="btn btn-success btn-sm"
+              data-bs-toggle="modal"
+              data-bs-target="#modalToggleAtivo"
+              data-url="{% url 'clientes:toggle_ativo' cliente.pk %}"
+              data-nome="{{ cliente.nome|escapejs }}"
+              data-ativo="0"
+              data-next="{% url 'clientes:detail' cliente.pk %}">
+        <i class="bi bi-arrow-counterclockwise"></i> Reativar
+      </button>
+    {% endif %}
+    <a href="{% url 'clientes:list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Voltar
+    </a>
   </div>
 </div>
+
+{% if not cliente.ativo %}
+<div class="alert alert-danger d-flex align-items-center mb-3" role="alert">
+  <i class="bi bi-exclamation-octagon-fill me-2"></i>
+  <div>Este cliente está <strong>inativo</strong>. Ele não aparece em buscas e não pode ter novas OS ou orçamentos criados.</div>
+</div>
+{% endif %}
+
 <div class="row g-3">
   <div class="col-md-5">
     <div class="card">
       <div class="card-header">Dados do Cliente</div>
       <div class="card-body">
         <dl class="row mb-0">
-          <dt class="col-5">Tipo</dt><dd class="col-7">{{ cliente.get_tipo_pessoa_display }}</dd>
-          <dt class="col-5">CPF/CNPJ</dt><dd class="col-7">{{ cliente.cpf_cnpj }}</dd>
-          <dt class="col-5">Telefone</dt><dd class="col-7">{{ cliente.telefone }}</dd>
-          <dt class="col-5">Celular</dt><dd class="col-7">{{ cliente.celular|default:"—" }}</dd>
-          <dt class="col-5">E-mail</dt><dd class="col-7">{{ cliente.email|default:"—" }}</dd>
-          <dt class="col-5">Endereço</dt><dd class="col-7">{{ cliente.endereco_completo|default:"—" }}</dd>
-          <dt class="col-5">Cadastro</dt><dd class="col-7">{{ cliente.criado_em|date:"d/m/Y" }}</dd>
+          <dt class="col-5">Tipo</dt>
+          <dd class="col-7">{{ cliente.get_tipo_pessoa_display }}</dd>
+
+          <dt class="col-5">CPF/CNPJ</dt>
+          <dd class="col-7">{{ cliente.cpf_cnpj }}</dd>
+
+          {% if cliente.rg_ie %}
+          <dt class="col-5">RG / Insc. Est.</dt>
+          <dd class="col-7">{{ cliente.rg_ie }}</dd>
+          {% endif %}
+
+          {% if cliente.data_nascimento %}
+          <dt class="col-5">Nascimento</dt>
+          <dd class="col-7">{{ cliente.data_nascimento|date:"d/m/Y" }}</dd>
+          {% endif %}
+
+          <dt class="col-5">Telefone</dt>
+          <dd class="col-7">{{ cliente.telefone }}</dd>
+
+          {% if cliente.celular %}
+          <dt class="col-5">Celular</dt>
+          <dd class="col-7">
+            {{ cliente.celular }}
+            {% if cliente.whatsapp %}
+              <span class="badge bg-success ms-1" style="font-size:.65rem">WhatsApp</span>
+            {% endif %}
+          </dd>
+          {% endif %}
+
+          {% if cliente.email %}
+          <dt class="col-5">E-mail</dt>
+          <dd class="col-7">{{ cliente.email }}</dd>
+          {% endif %}
+
+          {% if cliente.endereco_completo %}
+          <dt class="col-5">Endereço</dt>
+          <dd class="col-7">{{ cliente.endereco_completo }}</dd>
+          {% endif %}
+
+          <dt class="col-5">Cadastro</dt>
+          <dd class="col-7">{{ cliente.criado_em|date:"d/m/Y" }}</dd>
         </dl>
         {% if cliente.observacoes %}
         <hr>
@@ -31,6 +110,7 @@
       </div>
     </div>
   </div>
+
   <div class="col-md-7">
     <div class="card mb-3">
       <div class="card-header">Veículos ({{ veiculos.count }})</div>
@@ -50,12 +130,13 @@
         </div>
       </div>
     </div>
-    <div class="card">
+
+    <div class="card mb-3">
       <div class="card-header">Últimas Ordens de Serviço</div>
       <div class="card-body p-0">
         <div class="list-group list-group-flush">
           {% for os in ordens %}
-          <a href="{% url 'ordens_servico:detail' os.pk %}" class="list-group-item list-group-item-action">
+          <a href="{% url 'ordens_servico:os_detalhe' os.pk %}" class="list-group-item list-group-item-action">
             <div class="d-flex justify-content-between">
               <span class="fw-semibold">{{ os }}</span>
               <span class="badge bg-{{ os.status|status_badge }}">{{ os.get_status_display }}</span>
@@ -68,6 +149,87 @@
         </div>
       </div>
     </div>
+
+    <div class="card">
+      <div class="card-header">Últimos Orçamentos</div>
+      <div class="card-body p-0">
+        <div class="list-group list-group-flush">
+          {% for orc in orcamentos %}
+          <a href="{% url 'orcamentos:detail' orc.pk %}" class="list-group-item list-group-item-action">
+            <div class="d-flex justify-content-between">
+              <span class="fw-semibold">{{ orc }}</span>
+              <span class="badge bg-{{ orc.status|status_badge }}">{{ orc.get_status_display }}</span>
+            </div>
+            <small class="text-muted">{{ orc.veiculo.placa }} · {{ orc.data_criacao|date:"d/m/Y" }} · {{ orc.total|currency }}</small>
+          </a>
+          {% empty %}
+          <div class="list-group-item text-muted small">Nenhum orçamento registrado.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
   </div>
 </div>
+
+<!-- Modal unificado de confirmação de ativar/desativar -->
+<div class="modal fade" id="modalToggleAtivo" tabindex="-1"
+     aria-labelledby="modalToggleTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalToggleTitulo"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body" id="modalToggleBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg"></i> Cancelar
+        </button>
+        <form method="post" id="formToggleAtivo" class="d-inline">
+          {% csrf_token %}
+          <input type="hidden" name="next" id="modalToggleNext">
+          <button type="submit" id="modalToggleBtnConfirm" class="btn"></button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var modal = document.getElementById('modalToggleAtivo');
+  if (!modal) return;
+
+  modal.addEventListener('show.bs.modal', function (event) {
+    var btn    = event.relatedTarget;
+    var url    = btn.dataset.url;
+    var nome   = btn.dataset.nome;
+    var ativo  = btn.dataset.ativo === '1';
+    var next   = btn.dataset.next;
+
+    document.getElementById('formToggleAtivo').action = url;
+    document.getElementById('modalToggleNext').value  = next;
+
+    var titulo     = document.getElementById('modalToggleTitulo');
+    var body       = document.getElementById('modalToggleBody');
+    var btnConfirm = document.getElementById('modalToggleBtnConfirm');
+
+    if (ativo) {
+      titulo.textContent = 'Desativar Cliente';
+      body.innerHTML     = 'Deseja desativar o cliente <strong>' + nome + '</strong>?<br>'
+                         + '<small class="text-muted">Os dados históricos serão preservados e o cliente pode ser reativado a qualquer momento.</small>';
+      btnConfirm.textContent = 'Desativar';
+      btnConfirm.className   = 'btn btn-warning';
+    } else {
+      titulo.textContent = 'Reativar Cliente';
+      body.innerHTML     = 'Deseja reativar o cliente <strong>' + nome + '</strong>?<br>'
+                         + '<small class="text-muted">Ele voltará a aparecer em todo o sistema normalmente.</small>';
+      btnConfirm.textContent = 'Reativar';
+      btnConfirm.className   = 'btn btn-success';
+    }
+  });
+}());
+</script>
 {% endblock %}

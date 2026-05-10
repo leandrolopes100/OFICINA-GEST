@@ -1,6 +1,54 @@
 {% extends 'base.html' %}
 {% load oficina_tags %}
 {% block title %}Lançamentos Financeiros{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+<style>
+  .select2-container { width: 100% !important; }
+  .kpi-card {
+    border: none !important;
+    border-radius: 14px !important;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,.08);
+    transition: box-shadow .2s ease, transform .2s ease;
+  }
+  .kpi-card:hover {
+    box-shadow: 0 6px 20px rgba(0,0,0,.13);
+    transform: translateY(-2px);
+  }
+  .kpi-icon-panel {
+    width: 84px;
+    min-width: 84px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.9rem;
+    color: #fff;
+    transition: filter .2s ease;
+  }
+  .kpi-card:hover .kpi-icon-panel {
+    filter: brightness(.88);
+  }
+  .kpi-body {
+    padding: .9rem 1rem;
+  }
+  .kpi-label {
+    font-size: .68rem;
+    color: #6c757d;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 2px;
+  }
+  .kpi-value {
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1.15;
+  }
+</style>
+{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0 fw-bold"><i class="bi bi-cash-stack text-primary"></i> Lançamentos Financeiros</h4>
@@ -17,27 +65,43 @@
 <!-- Resumo -->
 <div class="row g-3 mb-3">
   <div class="col-md-4">
-    <div class="card border-start border-success border-4">
-      <div class="card-body py-2">
-        <div class="text-muted small">Total Receitas (pagas)</div>
-        <div class="fw-bold text-success fs-5">{{ total_receitas|currency }}</div>
+    <div class="card kpi-card h-100">
+      <div class="d-flex h-100">
+        <div class="kpi-icon-panel" style="background:linear-gradient(135deg,#198754,#157347)">
+          <i class="bi bi-arrow-down-circle-fill"></i>
+        </div>
+        <div class="kpi-body flex-grow-1">
+          <div class="kpi-label">Total Receitas (pagas)</div>
+          <div class="kpi-value text-success">{{ total_receitas|currency }}</div>
+        </div>
       </div>
     </div>
   </div>
   <div class="col-md-4">
-    <div class="card border-start border-danger border-4">
-      <div class="card-body py-2">
-        <div class="text-muted small">Total Despesas (pagas)</div>
-        <div class="fw-bold text-danger fs-5">{{ total_despesas|currency }}</div>
+    <div class="card kpi-card h-100">
+      <div class="d-flex h-100">
+        <div class="kpi-icon-panel" style="background:linear-gradient(135deg,#dc3545,#bb2d3b)">
+          <i class="bi bi-arrow-up-circle-fill"></i>
+        </div>
+        <div class="kpi-body flex-grow-1">
+          <div class="kpi-label">Total Despesas (pagas)</div>
+          <div class="kpi-value text-danger">{{ total_despesas|currency }}</div>
+        </div>
       </div>
     </div>
   </div>
   <div class="col-md-4">
-    <div class="card border-start border-primary border-4">
-      <div class="card-body py-2">
-        <div class="text-muted small">Saldo</div>
-        <div class="fw-bold fs-5 {% if saldo >= 0 %}text-success{% else %}text-danger{% endif %}">
-          {{ saldo|currency }}
+    <div class="card kpi-card h-100">
+      <div class="d-flex h-100">
+        <div class="kpi-icon-panel"
+             style="background:{% if saldo >= 0 %}linear-gradient(135deg,#198754,#157347){% else %}linear-gradient(135deg,#dc3545,#bb2d3b){% endif %}">
+          <i class="bi bi-piggy-bank-fill"></i>
+        </div>
+        <div class="kpi-body flex-grow-1">
+          <div class="kpi-label">Saldo</div>
+          <div class="kpi-value {% if saldo >= 0 %}text-success{% else %}text-danger{% endif %}">
+            {{ saldo|currency }}
+          </div>
         </div>
       </div>
     </div>
@@ -86,7 +150,7 @@
             <td>
               {{ lanc.descricao }}
               {% if lanc.ordem_servico %}
-              <a href="{% url 'ordens_servico:detail' lanc.ordem_servico.pk %}" class="ms-1 text-muted small">
+              <a href="{% url 'ordens_servico:os_detalhe' lanc.ordem_servico.pk %}" class="ms-1 text-muted small">
                 [{{ lanc.ordem_servico }}]
               </a>
               {% endif %}
@@ -108,13 +172,28 @@
             </td>
             <td>
               {% if lanc.status == 'pendente' %}
-              <a href="{% url 'financeiro:pagar' lanc.pk %}" class="btn btn-sm btn-success" title="Marcar como pago">
+              <button type="button"
+                      class="btn btn-sm btn-success"
+                      title="Marcar como pago"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modalPagarLancamento"
+                      data-url="{% url 'financeiro:pagar' lanc.pk %}"
+                      data-descricao="{{ lanc.descricao|escapejs }}"
+                      data-valor="{{ lanc.valor|currency }}"
+                      data-tipo="{{ lanc.get_tipo_display }}"
+                      data-tipo-classe="{% if lanc.tipo == 'receita' %}bg-success{% else %}bg-danger{% endif %}"
+                      data-vencimento="{{ lanc.data_vencimento|date:'d/m/Y'|default:'—' }}">
                 <i class="bi bi-check-lg"></i>
-              </a>
+              </button>
               {% endif %}
               <a href="{% url 'financeiro:update' lanc.pk %}" class="btn btn-sm btn-outline-warning" title="Editar">
                 <i class="bi bi-pencil"></i>
               </a>
+              {% if request.user.role == 'admin' %}
+              <a href="{% url 'financeiro:delete' lanc.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
+                <i class="bi bi-trash"></i>
+              </a>
+              {% endif %}
             </td>
           </tr>
           {% empty %}
@@ -128,15 +207,91 @@
     <nav>
       <ul class="pagination pagination-sm justify-content-center">
         {% if page_obj.has_previous %}
-        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">«</a></li>
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.tipo %}&tipo={{ request.GET.tipo }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">«</a>
+        </li>
         {% endif %}
         <li class="page-item active"><a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a></li>
         {% if page_obj.has_next %}
-        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">»</a></li>
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.tipo %}&tipo={{ request.GET.tipo }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">»</a>
+        </li>
         {% endif %}
       </ul>
     </nav>
     {% endif %}
   </div>
 </div>
+{# ══ Modal — Confirmar Pagamento ══ #}
+<div class="modal fade" id="modalPagarLancamento" tabindex="-1"
+     aria-labelledby="modalPagarTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="modalPagarTitulo">
+          <i class="bi bi-check-circle-fill me-2"></i> Confirmar Pagamento
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="mb-3">Confirma o recebimento / pagamento de:</p>
+
+        <div class="rounded border px-3 py-2 bg-light mb-3">
+          <div class="fw-bold fs-6 mb-1" id="modalPagarDescricao"></div>
+          <div class="d-flex align-items-center gap-2 small text-muted flex-wrap">
+            <span id="modalPagarTipoBadge" class="badge"></span>
+            <span>Venc: <strong id="modalPagarVencimento"></strong></span>
+            <span class="fw-semibold fs-6" id="modalPagarValor"></span>
+          </div>
+        </div>
+
+        <div class="alert alert-info py-2 small mb-0">
+          <i class="bi bi-info-circle me-1"></i>
+          A data de pagamento será registrada como <strong>hoje</strong>.
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg me-1"></i> Cancelar
+        </button>
+        <form method="post" id="formPagarLancamento" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-check-circle-fill me-1"></i> Confirmar Pagamento
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function () {
+  $('select').select2({
+    theme: 'bootstrap-5',
+    width: '100%',
+    minimumResultsForSearch: Infinity,
+    language: { noResults: () => 'Nenhum resultado encontrado' },
+  });
+});
+
+document.getElementById('modalPagarLancamento').addEventListener('show.bs.modal', function (e) {
+  var btn = e.relatedTarget;
+  document.getElementById('modalPagarDescricao').textContent  = btn.dataset.descricao;
+  document.getElementById('modalPagarValor').textContent      = btn.dataset.valor;
+  document.getElementById('modalPagarVencimento').textContent = btn.dataset.vencimento;
+  var badge = document.getElementById('modalPagarTipoBadge');
+  badge.textContent  = btn.dataset.tipo;
+  badge.className    = 'badge ' + btn.dataset.tipoClasse;
+  document.getElementById('formPagarLancamento').action = btn.dataset.url;
+});
+</script>
 {% endblock %}

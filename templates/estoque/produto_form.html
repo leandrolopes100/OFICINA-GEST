@@ -1,6 +1,13 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
 {% block title %}{% if object %}Editar{% else %}Novo{% endif %} Produto{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+<style>.select2-container { width: 100% !important; }</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0 fw-bold">
@@ -16,4 +23,45 @@
     {% crispy form %}
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function () {
+  $('select').select2({
+    theme: 'bootstrap-5',
+    width: '100%',
+    language: { noResults: () => 'Nenhum resultado encontrado' },
+  });
+
+  // Converte valor do campo para número, aceitando vírgula (pt-br) ou ponto
+  function parseVal(val) {
+    val = String(val || '').trim();
+    if (val.includes(',')) val = val.replace(/\./g, '').replace(',', '.');
+    return parseFloat(val) || 0;
+  }
+
+  function calcPrecoVenda() {
+    const custo  = parseVal($('#id_preco_custo').val());
+    const margem = parseVal($('#id_margem_lucro').val());
+    if (custo > 0) {
+      $('#id_preco_venda').val((custo * (1 + margem / 100)).toFixed(2));
+    }
+  }
+
+  function calcMargem() {
+    const custo  = parseVal($('#id_preco_custo').val());
+    const venda  = parseVal($('#id_preco_venda').val());
+    if (custo > 0 && venda > 0) {
+      $('#id_margem_lucro').val(((venda - custo) / custo * 100).toFixed(2));
+    }
+  }
+
+  // Ao mudar custo ou margem → atualiza preço de venda
+  $('#id_preco_custo, #id_margem_lucro').on('input', calcPrecoVenda);
+  // Ao digitar preço de venda manualmente → atualiza margem
+  $('#id_preco_venda').on('input', calcMargem);
+});
+</script>
 {% endblock %}

@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% block title %}Remover Fornecedor — {{ fornecedor.nome }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="mb-0 fw-bold">
+        <i class="bi bi-trash text-danger"></i> Remover Fornecedor
+      </h4>
+      <a href="{% url 'estoque:fornecedor_list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Voltar
+      </a>
+    </div>
+
+    {# ── Dados do fornecedor ── #}
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Fornecedor</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-4">Nome</dt>
+          <dd class="col-8 fw-bold">{{ fornecedor.nome }}</dd>
+          <dt class="col-4">CNPJ</dt>
+          <dd class="col-8">{{ fornecedor.cnpj|default:"—" }}</dd>
+          <dt class="col-4">Contato</dt>
+          <dd class="col-8">{{ fornecedor.contato|default:"—" }}</dd>
+          <dt class="col-4">Produtos vinculados</dt>
+          <dd class="col-8">
+            <span class="badge bg-secondary">{{ n_produtos }}</span>
+          </dd>
+        </dl>
+      </div>
+    </div>
+
+    {# ══ COM produtos vinculados → aviso de SET_NULL ══ #}
+    {% if n_produtos > 0 %}
+
+    <div class="alert alert-warning d-flex gap-2">
+      <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        <strong>Atenção: este fornecedor possui {{ n_produtos }} produto{{ n_produtos|pluralize }} vinculado{{ n_produtos|pluralize }}.</strong><br>
+        Se excluído permanentemente, o campo <em>Fornecedor</em> desses produtos
+        será removido automaticamente. Os produtos continuam existindo,
+        mas ficam sem fornecedor associado.
+      </div>
+    </div>
+
+    {# Opção segura: inativar #}
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-eye-slash"></i> Inativar (recomendado)
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-3">
+          O fornecedor deixa de aparecer em novos cadastros, mas o vínculo
+          com os produtos existentes é preservado.
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="inativar">
+          <button type="submit" class="btn btn-warning">
+            <i class="bi bi-eye-slash"></i> Inativar fornecedor
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {# Opção destrutiva: excluir mesmo assim #}
+    <div class="card border-danger mb-3">
+      <div class="card-header text-danger fw-semibold">
+        <i class="bi bi-trash"></i> Excluir permanentemente mesmo assim
+      </div>
+      <div class="card-body">
+        <p class="small text-danger mb-3">
+          <strong>{{ n_produtos }} produto{{ n_produtos|pluralize }}</strong>
+          perderá{{ n_produtos|pluralize:"á,ão" }} o vínculo com este fornecedor
+          (campo ficará em branco). Esta ação <strong>não pode ser desfeita</strong>.
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="excluir">
+          <button type="submit" class="btn btn-danger"
+                  onclick="return confirm('Confirma a exclusão de &quot;{{ fornecedor.nome }}&quot;? {{ n_produtos }} produto(s) perderão o fornecedor.')">
+            <i class="bi bi-trash"></i> Excluir e remover vínculos
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {# ══ SEM produtos → exclusão simples ══ #}
+    {% else %}
+
+    <div class="alert alert-success d-flex gap-2">
+      <i class="bi bi-check-circle-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        Este fornecedor <strong>não possui produtos vinculados</strong>.
+        Você pode excluí-lo permanentemente ou apenas inativá-lo.
+      </div>
+    </div>
+
+    <div class="card border-danger mb-3">
+      <div class="card-header text-danger fw-semibold">
+        <i class="bi bi-trash"></i> Excluir permanentemente
+      </div>
+      <div class="card-body">
+        <p class="small text-danger mb-3">
+          <strong>Atenção:</strong> esta ação <strong>não pode ser desfeita</strong>.
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="excluir">
+          <button type="submit" class="btn btn-danger"
+                  onclick="return confirm('Confirma a exclusão permanente de &quot;{{ fornecedor.nome }}&quot;?')">
+            <i class="bi bi-trash"></i> Excluir permanentemente
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-eye-slash"></i> Apenas inativar
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-3">
+          O fornecedor é ocultado das listas e seleções, mas permanece no banco.
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="inativar">
+          <button type="submit" class="btn btn-warning">
+            <i class="bi bi-eye-slash"></i> Inativar fornecedor
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <a href="{% url 'estoque:fornecedor_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

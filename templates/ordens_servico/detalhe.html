@@ -1,0 +1,575 @@
+{% extends 'base.html' %}
+{% load oficina_tags %}
+{% block title %}{{ os }}{% endblock %}
+
+{% block extra_css %}
+{% if os.pode_editar %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+<style>.select2-container { width: 100% !important; }</style>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold">
+    <i class="bi bi-clipboard2-check-fill text-primary"></i> {{ os }}
+    <span class="badge bg-{{ os.status|status_badge }} ms-2">{{ os.get_status_display }}</span>
+  </h4>
+  <div class="d-flex gap-1 flex-wrap">
+
+    {% if os.pode_editar %}
+    <a href="{% url 'ordens_servico:os_editar' os.pk %}" class="btn btn-warning btn-sm">
+      <i class="bi bi-pencil"></i> Editar
+    </a>
+    {% endif %}
+
+    {% if os.status == 'aberta' %}
+    <form method="post" action="{% url 'ordens_servico:os_status' os.pk %}" class="d-inline">
+      {% csrf_token %}
+      <input type="hidden" name="status" value="em_andamento">
+      <button type="submit" class="btn btn-info btn-sm">
+        <i class="bi bi-play-circle"></i> Iniciar
+      </button>
+    </form>
+    {% endif %}
+
+    {% if os.status == 'em_andamento' or os.status == 'aguardando' %}
+    <form method="post" action="{% url 'ordens_servico:os_status' os.pk %}" class="d-inline">
+      {% csrf_token %}
+      <input type="hidden" name="status" value="concluida">
+      <button type="submit" class="btn btn-success btn-sm">
+        <i class="bi bi-check-circle"></i> Concluir
+      </button>
+    </form>
+    {% endif %}
+
+    {% if os.status == 'concluida' %}
+    <button type="button" class="btn btn-primary btn-sm"
+            data-bs-toggle="modal" data-bs-target="#modalEntregar">
+      <i class="bi bi-box-arrow-right"></i> Entregar
+    </button>
+    {% endif %}
+
+    {% if os.status != 'entregue' and os.status != 'cancelada' %}
+    <button type="button" class="btn btn-outline-danger btn-sm"
+            data-bs-toggle="modal" data-bs-target="#modalCancelarOS">
+      <i class="bi bi-x-circle"></i> Cancelar
+    </button>
+    {% endif %}
+
+    <a href="{% url 'ordens_servico:os_imprimir' os.pk %}" class="btn btn-outline-primary btn-sm" target="_blank">
+      <i class="bi bi-printer"></i> Imprimir
+    </a>
+    <a href="{% url 'ordens_servico:os_lista' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i>
+    </a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card mb-3">
+      <div class="card-header">Informações</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-5">Cliente</dt>
+          <dd class="col-7"><a href="{% url 'clientes:detail' os.cliente.pk %}">{{ os.cliente.nome }}</a></dd>
+          <dt class="col-5">Veículo</dt>
+          <dd class="col-7"><a href="{% url 'veiculos:detail' os.veiculo.pk %}">{{ os.veiculo.placa }}</a></dd>
+          <dt class="col-5">Mecânico</dt>
+          <dd class="col-7">{{ os.mecanico|default:"—" }}</dd>
+          <dt class="col-5">KM Entrada</dt>
+          <dd class="col-7">{{ os.km_entrada }}</dd>
+          {% if os.km_saida %}
+          <dt class="col-5">KM Saída</dt>
+          <dd class="col-7">{{ os.km_saida }}</dd>
+          {% endif %}
+          <dt class="col-5">Abertura</dt>
+          <dd class="col-7">{{ os.data_abertura|date:"d/m/Y H:i" }}</dd>
+          {% if os.data_previsao %}
+          <dt class="col-5">Previsão</dt>
+          <dd class="col-7">{{ os.data_previsao|date:"d/m/Y" }}</dd>
+          {% endif %}
+          {% if os.data_conclusao %}
+          <dt class="col-5">Conclusão</dt>
+          <dd class="col-7">{{ os.data_conclusao|date:"d/m/Y" }}</dd>
+          {% endif %}
+          {% if os.data_entrega %}
+          <dt class="col-5">Entrega</dt>
+          <dd class="col-7">{{ os.data_entrega|date:"d/m/Y" }}</dd>
+          {% endif %}
+          {% if os.orcamento %}
+          <dt class="col-5">Orçamento</dt>
+          <dd class="col-7"><a href="{% url 'orcamentos:detail' os.orcamento.pk %}">{{ os.orcamento }}</a></dd>
+          {% endif %}
+          {% if os.criado_por %}
+          <dt class="col-5">Criado por</dt>
+          <dd class="col-7">{{ os.criado_por.get_full_name|default:os.criado_por.username }}</dd>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">Defeito / Diagnóstico</div>
+      <div class="card-body small">
+        <p><strong>Defeito:</strong> {{ os.defeito_relatado }}</p>
+        {% if os.diagnostico %}
+        <p><strong>Diagnóstico:</strong> {{ os.diagnostico }}</p>
+        {% endif %}
+        {% if os.servicos_realizados %}
+        <p class="mb-0"><strong>Obs. Serviços:</strong> {{ os.servicos_realizados }}</p>
+        {% endif %}
+        {% if os.observacoes_entrega %}
+        <p class="mb-0"><strong>Obs. Entrega:</strong> {{ os.observacoes_entrega }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">Resumo Financeiro</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-6">Subtotal Serviços</dt>
+          <dd class="col-6 text-end">{{ os.subtotal_servicos|currency }}</dd>
+          <dt class="col-6">Subtotal Peças</dt>
+          <dd class="col-6 text-end">{{ os.subtotal_pecas|currency }}</dd>
+          {% if os.desconto_valor %}
+          <dt class="col-6 text-danger">Desconto</dt>
+          <dd class="col-6 text-end text-danger">- {{ os.desconto_valor|currency }}</dd>
+          {% endif %}
+          <dt class="col-6 fw-bold border-top pt-1">TOTAL</dt>
+          <dd class="col-6 text-end fw-bold border-top pt-1 fs-5">{{ os.total|currency }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    {% if os.status == 'concluida' or os.status == 'entregue' %}
+      {% if ja_pago %}
+      {# ── Pagamento já confirmado: apenas leitura ── #}
+      <div class="card border-success">
+        <div class="card-header bg-success text-white fw-semibold">
+          <i class="bi bi-check-circle-fill"></i> Pagamento Recebido
+        </div>
+        <div class="card-body small">
+          <dl class="row mb-0">
+            <dt class="col-5">Valor</dt>
+            <dd class="col-7 fw-bold text-success fs-6">{{ pagamento_pago.valor|currency }}</dd>
+            <dt class="col-5">Data</dt>
+            <dd class="col-7">{{ pagamento_pago.data_pagamento|date:"d/m/Y"|default:"—" }}</dd>
+            {% if pagamento_pago.forma_pagamento %}
+            <dt class="col-5">Forma</dt>
+            <dd class="col-7">{{ pagamento_pago.forma_pagamento }}</dd>
+            {% endif %}
+            {% if pagamento_pago.observacoes %}
+            <dt class="col-5">Obs.</dt>
+            <dd class="col-7">{{ pagamento_pago.observacoes }}</dd>
+            {% endif %}
+          </dl>
+        </div>
+      </div>
+      {% else %}
+      {# ── Ainda não pago: exibe formulário ── #}
+      <div class="card">
+        <div class="card-header fw-semibold">
+          <i class="bi bi-cash-coin"></i> Registrar Pagamento
+        </div>
+        <div class="card-body">
+          {% if formas_pagamento %}
+          <form method="post" action="{% url 'ordens_servico:os_pagar' os.pk %}">
+            {% csrf_token %}
+            <div class="mb-2">
+              <label class="form-label small">Valor Pago (R$)</label>
+              <input type="text" name="valor_pago" class="form-control form-control-sm"
+                     value="{{ os.total }}" placeholder="0,00">
+            </div>
+            <div class="mb-2">
+              <label class="form-label small fw-semibold">
+                Forma de Pagamento <span class="text-danger">*</span>
+              </label>
+              <select name="forma_pagamento" class="form-select form-select-sm" required>
+                <option value="" disabled selected>— Selecione —</option>
+                {% for fp in formas_pagamento %}
+                <option value="{{ fp.pk }}">{{ fp.nome }}{% if fp.taxa %} (taxa {{ fp.taxa }}%){% endif %}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">Observação</label>
+              <input type="text" name="observacao" class="form-control form-control-sm" placeholder="Opcional">
+            </div>
+            <button type="submit" class="btn btn-success btn-sm w-100">
+              <i class="bi bi-cash-coin"></i> Confirmar Pagamento
+            </button>
+          </form>
+          {% else %}
+          <div class="alert alert-warning py-2 small mb-0">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            Nenhuma forma de pagamento ativa cadastrada.
+            <a href="{% url 'financeiro:formas_create' %}" class="alert-link">Cadastrar agora</a>.
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <div class="col-md-8">
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-tools"></i> Serviços</span>
+        {% if os.pode_editar %}
+        <button type="button" class="btn btn-sm btn-outline-primary"
+                data-bs-toggle="modal" data-bs-target="#modalAddServico">
+          <i class="bi bi-plus-lg"></i> Adicionar
+        </button>
+        {% endif %}
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead class="table-light">
+            <tr><th>Descrição</th><th>Qtd</th><th>Valor Unit.</th><th class="text-end">Total</th></tr>
+          </thead>
+          <tbody>
+            {% for item in itens_servico %}
+            <tr>
+              <td>{{ item.descricao }}</td>
+              <td>{{ item.quantidade }}</td>
+              <td>{{ item.preco_unitario|currency }}</td>
+              <td class="text-end">{{ item.total|currency }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-muted text-center small py-2">Nenhum serviço registrado.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-box-seam"></i> Peças / Materiais</span>
+        {% if os.pode_editar %}
+        <button type="button" class="btn btn-sm btn-outline-primary"
+                data-bs-toggle="modal" data-bs-target="#modalAddPeca">
+          <i class="bi bi-plus-lg"></i> Adicionar
+        </button>
+        {% endif %}
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead class="table-light">
+            <tr><th>Descrição</th><th>Qtd</th><th>Valor Unit.</th><th class="text-end">Total</th></tr>
+          </thead>
+          <tbody>
+            {% for item in itens_peca %}
+            <tr>
+              <td>{{ item.descricao }}</td>
+              <td>{{ item.quantidade }}</td>
+              <td>{{ item.preco_unitario|currency }}</td>
+              <td class="text-end">{{ item.total|currency }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-muted text-center small py-2">Nenhuma peça registrada.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if historico_list %}
+{# ── Histórico de alterações ── #}
+<div class="card mt-3">
+  <div class="card-header fw-semibold">
+    <i class="bi bi-clock-history text-secondary"></i> Histórico
+  </div>
+  <div class="card-body p-0">
+    <ul class="list-group list-group-flush">
+      {% for h in historico_list %}
+      <li class="list-group-item px-3 py-2">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <div>
+            <span class="badge bg-{{ h.tipo|historico_badge }} me-1" style="font-size:.65rem">{{ h.get_tipo_display }}</span>
+            <span class="small">{{ h.descricao }}</span>
+          </div>
+          <div class="text-muted text-nowrap" style="font-size:.75rem">
+            <div>{{ h.criado_em|date:"d/m/Y H:i" }}</div>
+            {% if h.usuario %}<div>{{ h.usuario.get_full_name|default:h.usuario.username }}</div>{% endif %}
+          </div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+<!-- Modal: Entrega do veículo com KM de saída -->
+{% if os.status == 'concluida' %}
+<div class="modal fade" id="modalEntregar" tabindex="-1" aria-labelledby="modalEntregarTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalEntregarTitulo">
+          <i class="bi bi-box-arrow-right text-primary"></i> Confirmar Entrega
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <form method="post" action="{% url 'ordens_servico:os_entregar' os.pk %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <p>Confirme a entrega de <strong>{{ os.veiculo.placa }}</strong> ao cliente
+          <strong>{{ os.cliente.nome }}</strong>.</p>
+          <div class="mb-2">
+            <label class="form-label fw-semibold">
+              KM de Saída <small class="text-muted fw-normal">(opcional)</small>
+            </label>
+            <input type="number" name="km_saida" class="form-control"
+                   placeholder="Ex: 45000" min="{{ os.km_entrada }}">
+            <div class="form-text">KM registrado na entrada: <strong>{{ os.km_entrada }}</strong></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+            <i class="bi bi-x-lg"></i> Cancelar
+          </button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-box-arrow-right"></i> Confirmar Entrega
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if os.pode_editar %}
+<!-- Dados para auto-fill dos selects (json_script evita &quot; no HTML) -->
+{{ tipos_servico_data|json_script:"data-tipos-servico" }}
+{{ produtos_data|json_script:"data-produtos" }}
+
+<!-- Modal: Adicionar Serviço / Mão de Obra -->
+<div class="modal fade" id="modalAddServico" tabindex="-1"
+     aria-labelledby="modalAddServicoTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalAddServicoTitulo">
+          <i class="bi bi-tools text-primary"></i> Adicionar Serviço / Mão de Obra
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <form method="post" action="{% url 'ordens_servico:os_add_servico' os.pk %}" id="formAddServico">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              Tipo de Serviço <small class="text-muted fw-normal">(opcional — para auto-preenchimento)</small>
+            </label>
+            <select name="tipo_servico" id="selectTipoServico" class="form-select">
+              <option value="">— selecione para auto-preencher —</option>
+              {% for ts in tipos_servico %}
+              <option value="{{ ts.pk }}" data-preco="{{ ts.preco_padrao }}" data-nome="{{ ts.nome }}">
+                {{ ts.nome }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Descrição <span class="text-danger">*</span></label>
+            <input type="text" name="descricao" id="inputServicoDesc"
+                   class="form-control" placeholder="Descreva o serviço realizado" maxlength="300" required>
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label fw-semibold">Quantidade <span class="text-danger">*</span></label>
+              <input type="number" name="quantidade" id="inputServicoQtd"
+                     class="form-control" value="1" step="0.01" min="0.01" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold">Preço Unitário (R$) <span class="text-danger">*</span></label>
+              <input type="number" name="preco_unitario" id="inputServicoPreco"
+                     class="form-control" value="0" step="0.01" min="0" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+            <i class="bi bi-x-lg"></i> Cancelar
+          </button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Adicionar Serviço
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Adicionar Peça / Material -->
+<div class="modal fade" id="modalAddPeca" tabindex="-1"
+     aria-labelledby="modalAddPecaTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalAddPecaTitulo">
+          <i class="bi bi-box-seam text-primary"></i> Adicionar Peça / Material
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <form method="post" action="{% url 'ordens_servico:os_add_peca' os.pk %}" id="formAddPeca">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Produto <span class="text-danger">*</span></label>
+            <select name="produto" id="selectProduto" class="form-select" required>
+              <option value="">— selecione o produto —</option>
+              {% for p in produtos %}
+              <option value="{{ p.pk }}" data-preco="{{ p.preco_venda }}" data-nome="{{ p.nome }}">
+                {{ p.nome }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Descrição</label>
+            <input type="text" name="descricao" id="inputPecaDesc"
+                   class="form-control" placeholder="Preenchido automaticamente" maxlength="300">
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label fw-semibold">Quantidade <span class="text-danger">*</span></label>
+              <input type="number" name="quantidade" id="inputPecaQtd"
+                     class="form-control" value="1" step="0.001" min="0.001" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold">Preço Unitário (R$) <span class="text-danger">*</span></label>
+              <input type="number" name="preco_unitario" id="inputPecaPreco"
+                     class="form-control" value="0" step="0.01" min="0" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+            <i class="bi bi-x-lg"></i> Cancelar
+          </button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Adicionar Peça
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Modal: Cancelamento da OS -->
+{% if os.status != 'entregue' and os.status != 'cancelada' %}
+<div class="modal fade" id="modalCancelarOS" tabindex="-1" aria-labelledby="modalCancelarTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalCancelarTitulo">
+          <i class="bi bi-x-circle text-danger"></i> Cancelar Ordem de Serviço
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <p>Deseja realmente cancelar a <strong>{{ os }}</strong>?</p>
+        <small class="text-muted">Esta ação não pode ser desfeita.</small>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-arrow-left"></i> Não, manter
+        </button>
+        <form method="post" action="{% url 'ordens_servico:os_cancelar' os.pk %}" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-x-circle"></i> Sim, cancelar OS
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% block extra_js %}
+{% if os.pode_editar %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+(function () {
+  var s2opts = {
+    theme: 'bootstrap-5', width: '100%',
+    language: { noResults: function () { return 'Nenhum resultado encontrado'; } },
+  };
+
+  /* ── Modal Serviço ─────────────────────────────────────────────────────── */
+  var modalServico = document.getElementById('modalAddServico');
+  if (modalServico) {
+    modalServico.addEventListener('show.bs.modal', function () {
+      // Limpa os campos ao abrir
+      document.getElementById('selectTipoServico').value = '';
+      document.getElementById('inputServicoDesc').value  = '';
+      document.getElementById('inputServicoQtd').value   = '1';
+      document.getElementById('inputServicoPreco').value = '0';
+      if ($('#selectTipoServico').data('select2')) {
+        $('#selectTipoServico').val('').trigger('change');
+      }
+    });
+
+    $('#selectTipoServico').select2(Object.assign({ dropdownParent: $('#modalAddServico') }, s2opts));
+
+    $('#selectTipoServico').on('select2:select', function () {
+      var opt = this.options[this.selectedIndex];
+      var nome  = opt.dataset.nome  || '';
+      var preco = opt.dataset.preco || '0';
+      var descEl  = document.getElementById('inputServicoDesc');
+      var precoEl = document.getElementById('inputServicoPreco');
+      if (!descEl.value)  descEl.value  = nome;
+      if (!precoEl.value || precoEl.value === '0') precoEl.value = parseFloat(preco).toFixed(2);
+    });
+
+    $('#selectTipoServico').on('select2:clear', function () {
+      document.getElementById('inputServicoDesc').value  = '';
+      document.getElementById('inputServicoPreco').value = '0';
+    });
+  }
+
+  /* ── Modal Peça ────────────────────────────────────────────────────────── */
+  var modalPeca = document.getElementById('modalAddPeca');
+  if (modalPeca) {
+    modalPeca.addEventListener('show.bs.modal', function () {
+      document.getElementById('selectProduto').value  = '';
+      document.getElementById('inputPecaDesc').value  = '';
+      document.getElementById('inputPecaQtd').value   = '1';
+      document.getElementById('inputPecaPreco').value = '0';
+      if ($('#selectProduto').data('select2')) {
+        $('#selectProduto').val('').trigger('change');
+      }
+    });
+
+    $('#selectProduto').select2(Object.assign({ dropdownParent: $('#modalAddPeca') }, s2opts));
+
+    $('#selectProduto').on('select2:select', function () {
+      var opt = this.options[this.selectedIndex];
+      var nome  = opt.dataset.nome  || '';
+      var preco = opt.dataset.preco || '0';
+      document.getElementById('inputPecaDesc').value  = nome;
+      document.getElementById('inputPecaPreco').value = parseFloat(preco).toFixed(2);
+    });
+
+    $('#selectProduto').on('select2:clear', function () {
+      document.getElementById('inputPecaDesc').value  = '';
+      document.getElementById('inputPecaPreco').value = '0';
+    });
+  }
+}());
+</script>
+{% endif %}
+{% endblock %}
+{% endblock %}

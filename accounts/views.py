@@ -1,13 +1,15 @@
 from django.contrib.auth import login, logout
+from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, PasswordChangeView
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.generic import ListView, CreateView, UpdateView, DetailView
 from django.contrib import messages
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render, get_object_or_404
 
 from .models import CustomUser
-from .forms import CustomAuthenticationForm, CustomUserCreationForm, CustomUserChangeForm
+from .forms import CustomAuthenticationForm, CustomUserCreationForm, CustomUserChangeForm, ProfileUpdateForm
 from core.mixins import RoleRequiredMixin
 
 
@@ -49,9 +51,43 @@ class UserUpdateView(RoleRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
+class AdminPasswordResetView(RoleRequiredMixin, View):
+    """Permite ao administrador redefinir a senha de qualquer usuário."""
+    allowed_roles = ['admin']
+
+    def get(self, request, pk):
+        target_user = get_object_or_404(CustomUser, pk=pk)
+        # Impede que o admin use esta view para a própria senha (tem a view padrão para isso)
+        if target_user == request.user:
+            messages.info(request, 'Para alterar sua própria senha, use a página de perfil.')
+            return redirect(reverse_lazy('accounts:password_change'))
+        form = SetPasswordForm(target_user)
+        return render(request, 'accounts/admin_password_reset.html', {
+            'form': form,
+            'target_user': target_user,
+        })
+
+    def post(self, request, pk):
+        target_user = get_object_or_404(CustomUser, pk=pk)
+        if target_user == request.user:
+            return redirect(reverse_lazy('accounts:password_change'))
+        form = SetPasswordForm(target_user, request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(
+                request,
+                f'Senha do usuário "{target_user.username}" redefinida com sucesso!'
+            )
+            return redirect(reverse_lazy('accounts:user_update', kwargs={'pk': pk}))
+        return render(request, 'accounts/admin_password_reset.html', {
+            'form': form,
+            'target_user': target_user,
+        })
+
+
 class ProfileView(LoginRequiredMixin, UpdateView):
     model = CustomUser
-    form_class = CustomUserChangeForm
+    form_class = ProfileUpdateForm
     template_name = 'accounts/profile.html'
     success_url = reverse_lazy('accounts:profile')
 

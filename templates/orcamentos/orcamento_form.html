@@ -2,9 +2,15 @@
 {% load crispy_forms_tags %}
 {% block title %}{% if object %}Editar{% else %}Novo{% endif %} Orçamento{% endblock %}
 {% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
 <style>
 .formset-row { background: #f8f9fa; border-radius: 6px; padding: 8px; margin-bottom: 6px; }
 .btn-remove-row { cursor: pointer; }
+.select2-container { width: 100% !important; }
+.formset-header { font-size: .75rem; font-weight: 600; color: #6c757d; padding: 0 8px 4px; }
+#resumo-card td { padding: 4px 8px; }
+#preview-total { font-size: 1.25rem; }
 </style>
 {% endblock %}
 {% block content %}
@@ -22,24 +28,33 @@
 <!-- Serviços -->
 <div class="card mb-3">
   <div class="card-header d-flex justify-content-between align-items-center">
-    <span><i class="bi bi-tools"></i> Serviços</span>
+    <span><i class="bi bi-tools"></i> Serviços / Mão de Obra</span>
     <button type="button" class="btn btn-sm btn-outline-primary" id="add-servico"><i class="bi bi-plus"></i> Adicionar</button>
   </div>
-  <div class="card-body" id="servicos-container">
-    {{ formset_servico.management_form }}
-    {% for f in formset_servico %}
-    <div class="formset-row row g-2 align-items-center">
-      <div class="col-md-3">{{ f.tipo_servico }}</div>
-      <div class="col-md-4">{{ f.descricao }}</div>
-      <div class="col-md-2">{{ f.quantidade }}</div>
-      <div class="col-md-2">{{ f.preco_unitario }}</div>
-      <div class="col-md-1">
-        {% if f.instance.pk %}{{ f.DELETE }}{% endif %}
-        <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row"><i class="bi bi-trash"></i></button>
-      </div>
-      {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+  <div class="card-body">
+    <div class="row g-2 formset-header d-none d-md-flex">
+      <div class="col-md-3">Tipo de Serviço</div>
+      <div class="col-md-4">Descrição</div>
+      <div class="col-md-2">Qtde</div>
+      <div class="col-md-2">Preço Unit. (R$)</div>
+      <div class="col-md-1"></div>
     </div>
-    {% endfor %}
+    <div id="servicos-container">
+      {{ formset_servico.management_form }}
+      {% for f in formset_servico %}
+      <div class="formset-row row g-2 align-items-center {% if f.errors %}border border-danger rounded{% endif %}">
+        <div class="col-md-3">{{ f.tipo_servico }}{% if f.tipo_servico.errors %}<div class="text-danger small">{{ f.tipo_servico.errors|join:", " }}</div>{% endif %}</div>
+        <div class="col-md-4">{{ f.descricao }}</div>
+        <div class="col-md-2">{{ f.quantidade }}{% if f.quantidade.errors %}<div class="text-danger small">{{ f.quantidade.errors|join:", " }}</div>{% endif %}</div>
+        <div class="col-md-2">{{ f.preco_unitario }}{% if f.preco_unitario.errors %}<div class="text-danger small">{{ f.preco_unitario.errors|join:", " }}</div>{% endif %}</div>
+        <div class="col-md-1">
+          {% if f.instance.pk %}{{ f.DELETE }}{% endif %}
+          <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row"><i class="bi bi-trash"></i></button>
+        </div>
+        {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
   </div>
 </div>
 
@@ -49,21 +64,63 @@
     <span><i class="bi bi-box-seam"></i> Peças / Materiais</span>
     <button type="button" class="btn btn-sm btn-outline-primary" id="add-peca"><i class="bi bi-plus"></i> Adicionar</button>
   </div>
-  <div class="card-body" id="pecas-container">
-    {{ formset_peca.management_form }}
-    {% for f in formset_peca %}
-    <div class="formset-row row g-2 align-items-center">
-      <div class="col-md-3">{{ f.produto }}</div>
-      <div class="col-md-4">{{ f.descricao }}</div>
-      <div class="col-md-2">{{ f.quantidade }}</div>
-      <div class="col-md-2">{{ f.preco_unitario }}</div>
-      <div class="col-md-1">
-        {% if f.instance.pk %}{{ f.DELETE }}{% endif %}
-        <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row"><i class="bi bi-trash"></i></button>
-      </div>
-      {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+  <div class="card-body">
+    <div class="row g-2 formset-header d-none d-md-flex">
+      <div class="col-md-3">Produto</div>
+      <div class="col-md-4">Descrição</div>
+      <div class="col-md-2">Qtde</div>
+      <div class="col-md-2">Preço Unit. (R$)</div>
+      <div class="col-md-1"></div>
     </div>
-    {% endfor %}
+    <div id="pecas-container">
+      {{ formset_peca.management_form }}
+      {% for f in formset_peca %}
+      <div class="formset-row row g-2 align-items-center {% if f.errors %}border border-danger rounded{% endif %}">
+        <div class="col-md-3">{{ f.produto }}{% if f.produto.errors %}<div class="text-danger small">{{ f.produto.errors|join:", " }}</div>{% endif %}</div>
+        <div class="col-md-4">{{ f.descricao }}</div>
+        <div class="col-md-2">{{ f.quantidade }}{% if f.quantidade.errors %}<div class="text-danger small">{{ f.quantidade.errors|join:", " }}</div>{% endif %}</div>
+        <div class="col-md-2">{{ f.preco_unitario }}{% if f.preco_unitario.errors %}<div class="text-danger small">{{ f.preco_unitario.errors|join:", " }}</div>{% endif %}</div>
+        <div class="col-md-1">
+          {% if f.instance.pk %}{{ f.DELETE }}{% endif %}
+          <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row"><i class="bi bi-trash"></i></button>
+        </div>
+        {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Resumo em tempo real -->
+<div class="card mb-3" id="resumo-card">
+  <div class="card-header fw-bold"><i class="bi bi-calculator"></i> Resumo</div>
+  <div class="card-body py-2">
+    <div class="row justify-content-end">
+      <div class="col-md-5">
+        <table class="table table-sm mb-0">
+          <tr>
+            <td class="text-muted">Subtotal Serviços</td>
+            <td class="text-end" id="prev-sub-servicos">R$ 0,00</td>
+          </tr>
+          <tr>
+            <td class="text-muted">Subtotal Peças</td>
+            <td class="text-end" id="prev-sub-pecas">R$ 0,00</td>
+          </tr>
+          <tr id="prev-row-desconto" style="display:none">
+            <td class="text-danger">Desconto</td>
+            <td class="text-end text-danger" id="prev-desconto"></td>
+          </tr>
+          <tr id="prev-row-taxa" style="display:none">
+            <td class="text-success">Taxa / Acréscimo</td>
+            <td class="text-end text-success" id="prev-taxa"></td>
+          </tr>
+          <tr class="border-top fw-bold">
+            <td>TOTAL</td>
+            <td class="text-end" id="preview-total">R$ 0,00</td>
+          </tr>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -71,28 +128,263 @@
   <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-check-circle"></i> Salvar Orçamento</button>
 </div>
 </form>
+
+{# ── Templates ocultos para clonagem via JS ──────────────────────────────── #}
+{# Ficam FORA do <form> para não serem submetidos acidentalmente.             #}
+{# empty_form usa __prefix__ como placeholder; o JS substitui pelo índice real. #}
+
+<div id="servico-empty-form" style="display:none" aria-hidden="true">
+  {% with f=formset_servico.empty_form %}
+  <div class="formset-row row g-2 align-items-center">
+    <div class="col-md-3">{{ f.tipo_servico }}</div>
+    <div class="col-md-4">{{ f.descricao }}</div>
+    <div class="col-md-2">{{ f.quantidade }}</div>
+    <div class="col-md-2">{{ f.preco_unitario }}</div>
+    <div class="col-md-1">
+      <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row"><i class="bi bi-trash"></i></button>
+    </div>
+    {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+  </div>
+  {% endwith %}
+</div>
+
+<div id="peca-empty-form" style="display:none" aria-hidden="true">
+  {% with f=formset_peca.empty_form %}
+  <div class="formset-row row g-2 align-items-center">
+    <div class="col-md-3">{{ f.produto }}</div>
+    <div class="col-md-4">{{ f.descricao }}</div>
+    <div class="col-md-2">{{ f.quantidade }}</div>
+    <div class="col-md-2">{{ f.preco_unitario }}</div>
+    <div class="col-md-1">
+      <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row"><i class="bi bi-trash"></i></button>
+    </div>
+    {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+  </div>
+  {% endwith %}
+</div>
+
 {% endblock %}
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
+const tiposServico = {{ tipos_servico_json|safe }};
+const produtos     = {{ produtos_json|safe }};
+
+/* ── Utilitários ─────────────────────────────────────────────────────────── */
+const brlFmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+
+function parseDec(val) {
+  val = String(val || '').trim();
+  // Aceita formato pt-BR (1.000,50) e padrão (1000.50)
+  if (val.includes(',')) val = val.replace(/\./g, '').replace(',', '.');
+  return parseFloat(val) || 0;
+}
+
+function formatBRL(v) { return brlFmt.format(v); }
+
+/* ── Cálculo de subtotal de um container ────────────────────────────────── */
+function calcSubtotal(containerId) {
+  let total = 0;
+  document.querySelectorAll(`#${containerId} .formset-row`).forEach(row => {
+    if (row.style.display === 'none') return;        // linha marcada para deletar
+    const qtd   = parseDec(row.querySelector('input[name$="-quantidade"]')?.value);
+    const preco = parseDec(row.querySelector('input[name$="-preco_unitario"]')?.value);
+    total += qtd * preco;
+  });
+  return total;
+}
+
+/* ── Atualiza o resumo em tempo real ────────────────────────────────────── */
+function atualizarResumo() {
+  const subServ = calcSubtotal('servicos-container');
+  const subPeca = calcSubtotal('pecas-container');
+  const base    = subServ + subPeca;
+
+  const pctEl  = document.getElementById('id_desconto_percentual');
+  const valEl  = document.getElementById('id_desconto_valor');
+  const taxaEl = document.getElementById('id_taxa_valor');
+
+  let descPct = parseDec(pctEl?.value);
+  let descVal = parseDec(valEl?.value);
+  const taxa  = parseDec(taxaEl?.value);
+
+  // Se % preenchido → valor é derivado do percentual
+  if (descPct > 0 && base > 0) {
+    descVal = parseFloat((base * descPct / 100).toFixed(2));
+  }
+
+  const total = Math.max(0, base - descVal + taxa);
+
+  // Subtotais
+  document.getElementById('prev-sub-servicos').textContent = formatBRL(subServ);
+  document.getElementById('prev-sub-pecas').textContent    = formatBRL(subPeca);
+
+  // Desconto: mostra linha apenas se houver valor
+  const rowDesc = document.getElementById('prev-row-desconto');
+  if (descVal > 0) {
+    rowDesc.style.display = '';
+    document.getElementById('prev-desconto').textContent = '- ' + formatBRL(descVal);
+  } else {
+    rowDesc.style.display = 'none';
+  }
+
+  // Taxa: mostra linha apenas se houver valor
+  const rowTaxa = document.getElementById('prev-row-taxa');
+  if (taxa > 0) {
+    rowTaxa.style.display = '';
+    document.getElementById('prev-taxa').textContent = '+ ' + formatBRL(taxa);
+  } else {
+    rowTaxa.style.display = 'none';
+  }
+
+  document.getElementById('preview-total').textContent = formatBRL(total);
+}
+
+/* ── Cálculo bidirecional de desconto ───────────────────────────────────── */
+document.getElementById('id_desconto_percentual')?.addEventListener('input', function () {
+  const base    = calcSubtotal('servicos-container') + calcSubtotal('pecas-container');
+  const pct     = parseDec(this.value);
+  const valEl   = document.getElementById('id_desconto_valor');
+  if (valEl && base > 0) valEl.value = (base * pct / 100).toFixed(2);
+  atualizarResumo();
+});
+
+document.getElementById('id_desconto_valor')?.addEventListener('input', function () {
+  const base    = calcSubtotal('servicos-container') + calcSubtotal('pecas-container');
+  const val     = parseDec(this.value);
+  const pctEl   = document.getElementById('id_desconto_percentual');
+  if (pctEl && base > 0) pctEl.value = (val / base * 100).toFixed(2);
+  atualizarResumo();
+});
+
+document.getElementById('id_taxa_valor')?.addEventListener('input', atualizarResumo);
+
+/* ── Atualiza resumo quando qualquer linha muda ─────────────────────────── */
+document.getElementById('orcamento-form').addEventListener('input', function (e) {
+  if (e.target.matches('input[name$="-quantidade"], input[name$="-preco_unitario"]')) {
+    atualizarResumo();
+  }
+});
+
+/* ── Select2 + auto-preenchimento por linha ─────────────────────────────── */
+function initSelect2InRow(row, prefix) {
+  $(row).find('select').select2({
+    theme: 'bootstrap-5',
+    width: '100%',
+    language: { noResults: () => 'Nenhum resultado encontrado' },
+  });
+
+  if (prefix === 'servico') {
+    $(row).find('select[name$="-tipo_servico"]').on('select2:select', function (e) {
+      const data = tiposServico[String(e.params.data.id)];
+      if (!data) return;
+      const precoField = $(row).find('input[name$="-preco_unitario"]');
+      const descField  = $(row).find('input[name$="-descricao"]');
+      if (!precoField.val()) precoField.val(data.preco);
+      if (!descField.val())  descField.val(data.nome);
+      atualizarResumo();
+    });
+  } else if (prefix === 'peca') {
+    $(row).find('select[name$="-produto"]').on('select2:select', function (e) {
+      const data = produtos[String(e.params.data.id)];
+      if (!data) return;
+      const precoField = $(row).find('input[name$="-preco_unitario"]');
+      const descField  = $(row).find('input[name$="-descricao"]');
+      const qtdField   = $(row).find('input[name$="-quantidade"]');
+      if (!precoField.val()) precoField.val(data.preco);
+      if (!descField.val())  descField.val(data.nome);
+      if (!qtdField.val())   qtdField.val('1');
+      atualizarResumo();
+    });
+  }
+}
+
+/* ── Adicionar nova linha via template oculto ───────────────────────────── */
 function addFormsetRow(containerId, prefix) {
-  const container = document.getElementById(containerId);
+  const container  = document.getElementById(containerId);
   const totalForms = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
-  const count = parseInt(totalForms.value);
-  const newRow = container.querySelector('.formset-row').cloneNode(true);
-  newRow.innerHTML = newRow.innerHTML.replace(new RegExp(`${prefix}-\\d+-`, 'g'), `${prefix}-${count}-`);
-  newRow.querySelectorAll('input:not([type=hidden]), select, textarea').forEach(el => el.value = '');
+  const count      = parseInt(totalForms.value);
+
+  // Clona o template oculto (sempre virgem, nunca inicializado pelo Select2)
+  const template = document.getElementById(`${prefix}-empty-form`);
+  const wrapper  = document.createElement('div');
+  wrapper.innerHTML = template.innerHTML.replace(/__prefix__/g, count);
+  const newRow = wrapper.firstElementChild;
+
   container.appendChild(newRow);
   totalForms.value = count + 1;
+  initSelect2InRow(newRow, prefix);
 }
-document.getElementById('add-servico').addEventListener('click', () => addFormsetRow('servicos-container', 'servico'));
-document.getElementById('add-peca').addEventListener('click', () => addFormsetRow('pecas-container', 'peca'));
+
+/* ── Remover linha ──────────────────────────────────────────────────────── */
 document.addEventListener('click', e => {
   if (e.target.closest('.btn-remove-row')) {
     const row = e.target.closest('.formset-row');
     const deleteCheck = row.querySelector('input[type=checkbox][id$="-DELETE"]');
     if (deleteCheck) { deleteCheck.checked = true; row.style.display = 'none'; }
-    else { row.remove(); }
+    else             { row.remove(); }
+    atualizarResumo();
   }
+});
+
+/* ── Inicialização ──────────────────────────────────────────────────────── */
+document.getElementById('add-servico').addEventListener('click', () => addFormsetRow('servicos-container', 'servico'));
+document.getElementById('add-peca').addEventListener('click',    () => addFormsetRow('pecas-container', 'peca'));
+
+/* ── Cascata AJAX: cliente → veículos ──────────────────────────────────────
+   Mesmo padrão do formulário de OS:
+   - Destrói o Select2 antes de repopular (evita cache interno obsoleto)
+   - Reinicializa após popular (garante dropdown correto)
+   - .val() + .trigger('change') é a API correta do Select2 para pré-seleção
+────────────────────────────────────────────────────────────────────────── */
+function carregarVeiculos(clienteId, veiculoSelecionado) {
+  var sel = document.getElementById('id_veiculo');
+  if (!clienteId || !sel) return;
+  fetch('/veiculos/ajax/por-cliente/' + clienteId + '/')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var results = data.results || [];
+      if ($(sel).data('select2')) $(sel).select2('destroy');
+      $(sel).empty().append(new Option('— Selecione o veículo —', '', true, false));
+      results.forEach(function (v) {
+        $(sel).append(new Option(v.text, v.id, false, false));
+      });
+      $(sel).select2({
+        theme: 'bootstrap-5', width: '100%',
+        language: { noResults: function () { return 'Nenhum resultado encontrado'; } },
+      });
+      if (veiculoSelecionado) $(sel).val(String(veiculoSelecionado)).trigger('change');
+    })
+    .catch(function () {});
+}
+
+$(document).ready(function () {
+  // Select2 nos campos do formulário principal (Dados Gerais)
+  $('#orcamento-form .card:first-of-type .card-body select').select2({
+    theme: 'bootstrap-5',
+    width: '100%',
+    language: { noResults: () => 'Nenhum resultado encontrado' },
+  });
+
+  // Inicializa Select2 + auto-preenchimento nas linhas já existentes (extra=1 ou edição)
+  $('#servicos-container .formset-row').each(function () { initSelect2InRow(this, 'servico'); });
+  $('#pecas-container .formset-row').each(function ()    { initSelect2InRow(this, 'peca'); });
+
+  // ── Cascata cliente → veículo ─────────────────────────────────────────────
+  // veiculo_inicial: preenchido pelo servidor quando vindo de ?veiculo=X (ex: ficha do veículo)
+  var veiculoAtual   = '{{ form.instance.veiculo_id|default:"" }}' || '{{ veiculo_inicial|default:"" }}';
+  var clienteInicial = document.getElementById('id_cliente') ? document.getElementById('id_cliente').value : '';
+
+  // Dispara cascata quando usuário muda o cliente
+  $('#id_cliente').on('select2:select', function () {
+    carregarVeiculos(this.value, null);
+  });
+
+  // Ao carregar a página: popula veículos e pré-seleciona o atual (edição ou vindo de URL)
+  if (clienteInicial) carregarVeiculos(clienteInicial, veiculoAtual);
+
+  // Calcula resumo inicial (importante na edição, onde os campos já têm valores)
+  atualizarResumo();
 });
 </script>
 {% endblock %}

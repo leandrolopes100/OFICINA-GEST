@@ -1,0 +1,429 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{% if os %}Editar OS-{{ os.numero }}{% else %}Nova Ordem de Serviço{% endif %}{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+<style>
+  .fs-table th { font-size:.78rem; font-weight:600; color:#6c757d; padding:6px 8px; white-space:nowrap; }
+  .fs-table td { vertical-align:middle; padding:4px 6px; }
+  .fs-table .form-control, .fs-table .form-select { font-size:.85rem; }
+  .fs-table tr.row-deleted { opacity:.3; pointer-events:none; }
+  .total-cell { font-size:.85rem; font-weight:500; color:#212529; min-width:80px; text-align:right; }
+  #totais-bar { background:#fff; border-top:2px solid #e9ecef; }
+  .select2-container { width:100% !important; }
+  .fs-errors { font-size:.8rem; color:#dc3545; margin:0; padding:0 0 0 .3rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold">
+    <i class="bi bi-clipboard2-plus text-primary"></i> {{ titulo }}
+  </h4>
+  <a href="{% url 'ordens_servico:os_lista' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i> Voltar
+  </a>
+</div>
+
+{# ── UMA única <form> — crispy usa form_tag=False ── #}
+<form method="post" id="os-form" novalidate>
+{% csrf_token %}
+
+{# 1. Dados Gerais #}
+<div class="card mb-3">
+  <div class="card-header"><i class="bi bi-info-circle"></i> Dados Gerais</div>
+  <div class="card-body">
+    {% crispy form %}
+  </div>
+</div>
+
+{# 2. Serviços #}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-tools"></i> Serviços</span>
+    <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-srv">
+      <i class="bi bi-plus-lg"></i> Adicionar serviço
+    </button>
+  </div>
+  <div class="card-body p-0">
+    {{ formset_srv.management_form }}
+
+    {# Erros gerais do formset #}
+    {% if formset_srv.non_form_errors %}
+    <div class="alert alert-danger m-2 py-2">{{ formset_srv.non_form_errors }}</div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 fs-table">
+        <thead class="table-light">
+          <tr>
+            <th style="width:26%">Tipo de Serviço <span class="text-muted fw-normal">(opcional)</span></th>
+            <th style="width:32%">Descrição</th>
+            <th style="width:9%">Qtd</th>
+            <th style="width:13%">Preço unit. (R$)</th>
+            <th style="width:10%" class="text-end pe-3">Total</th>
+            <th style="width:10%"></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-srv">
+          {% for f in formset_srv %}
+          <tr class="fs-row" id="srv-row-{{ forloop.counter0 }}">
+            <td>
+              {{ f.tipo_servico }}
+              {% if f.tipo_servico.errors %}<p class="fs-errors">{{ f.tipo_servico.errors|join:", " }}</p>{% endif %}
+            </td>
+            <td>
+              {{ f.descricao }}
+              {% if f.descricao.errors %}<p class="fs-errors">{{ f.descricao.errors|join:", " }}</p>{% endif %}
+            </td>
+            <td>{{ f.quantidade }}</td>
+            <td>{{ f.preco_unitario }}</td>
+            <td class="total-cell pe-3">—</td>
+            <td>
+              {# campos hidden do formset (id, etc.) #}
+              {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+              {# DELETE checkbox escondido (para linhas já salvas) #}
+              {% if f.instance.pk %}
+                <div class="d-none">{{ f.DELETE }}</div>
+              {% endif %}
+              <button type="button" class="btn btn-sm btn-outline-danger btn-remove" title="Remover">
+                <i class="bi bi-trash3"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# 3. Peças / Materiais #}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-box-seam"></i> Peças / Materiais</span>
+    <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-peca">
+      <i class="bi bi-plus-lg"></i> Adicionar peça
+    </button>
+  </div>
+  <div class="card-body p-0">
+    {{ formset_peca.management_form }}
+
+    {% if formset_peca.non_form_errors %}
+    <div class="alert alert-danger m-2 py-2">{{ formset_peca.non_form_errors }}</div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 fs-table">
+        <thead class="table-light">
+          <tr>
+            <th style="width:26%">Produto <span class="text-muted fw-normal">(opcional)</span></th>
+            <th style="width:32%">Descrição</th>
+            <th style="width:9%">Qtd</th>
+            <th style="width:13%">Preço unit. (R$)</th>
+            <th style="width:10%" class="text-end pe-3">Total</th>
+            <th style="width:10%"></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-peca">
+          {% for f in formset_peca %}
+          <tr class="fs-row" id="peca-row-{{ forloop.counter0 }}">
+            <td>
+              {{ f.produto }}
+              {% if f.produto.errors %}<p class="fs-errors">{{ f.produto.errors|join:", " }}</p>{% endif %}
+            </td>
+            <td>
+              {{ f.descricao }}
+              {% if f.descricao.errors %}<p class="fs-errors">{{ f.descricao.errors|join:", " }}</p>{% endif %}
+            </td>
+            <td>{{ f.quantidade }}</td>
+            <td>{{ f.preco_unitario }}</td>
+            <td class="total-cell pe-3">—</td>
+            <td>
+              {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+              {% if f.instance.pk %}
+                <div class="d-none">{{ f.DELETE }}</div>
+              {% endif %}
+              <button type="button" class="btn btn-sm btn-outline-danger btn-remove" title="Remover">
+                <i class="bi bi-trash3"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# 4. Barra de totais + salvar #}
+<div id="totais-bar" class="card mb-4 sticky-bottom shadow-sm">
+  <div class="card-body py-2 d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div class="d-flex flex-wrap gap-4 align-items-center">
+      <span class="text-muted small">Serviços: <strong id="sum-srv">R$ 0,00</strong></span>
+      <span class="text-muted small">Peças: <strong id="sum-peca">R$ 0,00</strong></span>
+      <span class="text-muted small">Desconto: <strong id="sum-desc">R$ 0,00</strong></span>
+      <span class="fw-bold fs-6 text-primary">Total OS: <span id="sum-total">R$ 0,00</span></span>
+    </div>
+    <button type="submit" class="btn btn-primary px-4" id="btn-salvar">
+      <i class="bi bi-check2-circle"></i> Salvar OS
+    </button>
+  </div>
+</div>
+
+</form>
+
+{# ── Templates HTML para novas linhas ── #}
+<template id="tmpl-srv">
+  <tr class="fs-row">
+    <td><select name="srv-IDX-tipo_servico" class="form-select sel-servico" style="font-size:.85rem">
+      <option value="">— catálogo (opcional) —</option>
+      {% for ts in formset_srv.forms.0.fields.tipo_servico.queryset %}
+      <option value="{{ ts.pk }}">{{ ts.nome }}</option>
+      {% endfor %}
+    </select></td>
+    <td><input type="text" name="srv-IDX-descricao" class="form-control" style="font-size:.85rem"
+               placeholder="Descreva o serviço" maxlength="300"></td>
+    <td><input type="number" name="srv-IDX-quantidade" class="form-control qtd" style="font-size:.85rem"
+               value="1" step="0.01" min="0.01"></td>
+    <td><input type="number" name="srv-IDX-preco_unitario" class="form-control preco" style="font-size:.85rem"
+               value="" step="0.01" min="0" placeholder="0,00"></td>
+    <td class="total-cell pe-3">—</td>
+    <td>
+      <input type="hidden" name="srv-IDX-id" value="">
+      <button type="button" class="btn btn-sm btn-outline-danger btn-remove" title="Remover">
+        <i class="bi bi-trash3"></i>
+      </button>
+    </td>
+  </tr>
+</template>
+
+<template id="tmpl-peca">
+  <tr class="fs-row">
+    <td><select name="peca-IDX-produto" class="form-select sel-produto" style="font-size:.85rem">
+      <option value="">— selecione a peça —</option>
+      {% for p in formset_peca.forms.0.fields.produto.queryset %}
+      <option value="{{ p.pk }}">{{ p }}</option>
+      {% endfor %}
+    </select></td>
+    <td><input type="text" name="peca-IDX-descricao" class="form-control" style="font-size:.85rem"
+               placeholder="Descreva a peça" maxlength="300"></td>
+    <td><input type="number" name="peca-IDX-quantidade" class="form-control qtd" style="font-size:.85rem"
+               value="1" step="0.001" min="0.001"></td>
+    <td><input type="number" name="peca-IDX-preco_unitario" class="form-control preco" style="font-size:.85rem"
+               value="" step="0.01" min="0" placeholder="0,00"></td>
+    <td class="total-cell pe-3">—</td>
+    <td>
+      <input type="hidden" name="peca-IDX-id" value="">
+      <button type="button" class="btn btn-sm btn-outline-danger btn-remove" title="Remover">
+        <i class="bi bi-trash3"></i>
+      </button>
+    </td>
+  </tr>
+</template>
+
+{# Dados de preços — json_script faz o escape correto, sem &quot; #}
+{{ servicos_data|json_script:"data-servicos" }}
+{{ produtos_data|json_script:"data-produtos" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+'use strict';
+
+/* ── Preços (json_script garante JSON sem &quot;) ── */
+const SERVICOS = JSON.parse(document.getElementById('data-servicos').textContent);
+const PRODUTOS  = JSON.parse(document.getElementById('data-produtos').textContent);
+
+/* ── Formatação R$ ── */
+const brl = v => parseFloat(v || 0).toLocaleString('pt-BR', {
+  style: 'currency', currency: 'BRL'
+});
+
+/* ── Select2 base: inicializa uma única vez por elemento ── */
+function s2base(el, opts) {
+  if ($(el).data('select2')) return;
+  $(el).select2(Object.assign({
+    theme: 'bootstrap-5', width: '100%',
+    language: { noResults: () => 'Nenhum resultado' },
+  }, opts));
+}
+
+/* ── Calcula total de uma linha ── */
+function calcLinha(row) {
+  const qtd   = parseFloat(row.querySelector('.qtd')?.value)   || 0;
+  const preco = parseFloat(row.querySelector('.preco')?.value) || 0;
+  const total = qtd * preco;
+  const cell  = row.querySelector('.total-cell');
+  if (cell) cell.textContent = total > 0 ? brl(total) : '—';
+  return total;
+}
+
+/* ── Recalcula totais gerais ── */
+function recalc() {
+  let sumSrv = 0, sumPeca = 0;
+  document.querySelectorAll('#tbody-srv  .fs-row:not(.row-deleted)').forEach(r => { sumSrv  += calcLinha(r); });
+  document.querySelectorAll('#tbody-peca .fs-row:not(.row-deleted)').forEach(r => { sumPeca += calcLinha(r); });
+  const desc  = parseFloat(document.querySelector('[name="desconto_valor"]')?.value) || 0;
+  const total = Math.max(0, sumSrv + sumPeca - desc);
+  document.getElementById('sum-srv').textContent   = brl(sumSrv);
+  document.getElementById('sum-peca').textContent  = brl(sumPeca);
+  document.getElementById('sum-desc').textContent  = brl(desc);
+  document.getElementById('sum-total').textContent = brl(total);
+}
+
+/* ────────────────────────────────────────────────────────────────
+   AUTO-FILL — lógica smart para troca de produto/serviço
+   Usa 'select2:select' em vez de 'change':
+   - 'change' no Select2 pode não borbulhar para delegação jQuery
+   - 'select2:select' dispara SOMENTE em interação do usuário,
+     nunca no carregamento da página — seguro remover os guards
+   Comportamento:
+   - Preço   → sempre atualiza ao trocar item
+   - Descrição → atualiza se vazia OU se não foi editada
+     manualmente (detectado via data-auto-desc)
+──────────────────────────────────────────────────────────────── */
+function autofill(selectEl, catalogo) {
+  const id   = selectEl.value;
+  const data = catalogo[id];
+  if (!data) return;
+  const row   = selectEl.closest('tr.fs-row');
+  const preco = row.querySelector('.preco');
+  const desc  = row.querySelector('input[name$="-descricao"]');
+
+  /* Preço: sempre atualiza — o usuário pode corrigir manualmente depois */
+  if (preco) preco.value = data.preco.toFixed(2);
+
+  /* Descrição: atualiza se vazia OU se ainda é igual ao nome
+     que foi auto-preenchido anteriormente (não editada pelo usuário) */
+  if (desc) {
+    const prevAutoDesc = selectEl.dataset.autoDesc || '';
+    if (!desc.value || desc.value === prevAutoDesc) {
+      desc.value = data.nome;
+    }
+  }
+
+  /* Memoriza o nome auto-preenchido para detectar edição futura */
+  selectEl.dataset.autoDesc = data.nome;
+
+  calcLinha(row);
+  recalc();
+}
+
+/* Inicializa Select2 + vincula auto-fill num select de SERVIÇO */
+function initServicoSelect(el) {
+  /* Registra o nome atual como auto-desc para linhas já salvas */
+  if (el.value && SERVICOS[el.value]) {
+    el.dataset.autoDesc = SERVICOS[el.value].nome;
+  }
+  s2base(el);
+  $(el).off('select2:select.fill').on('select2:select.fill', function () {
+    autofill(this, SERVICOS);
+  });
+}
+
+/* Inicializa Select2 + vincula auto-fill num select de PRODUTO */
+function initProdutoSelect(el) {
+  /* Registra o nome atual como auto-desc para linhas já salvas */
+  if (el.value && PRODUTOS[el.value]) {
+    el.dataset.autoDesc = PRODUTOS[el.value].nome;
+  }
+  s2base(el);
+  $(el).off('select2:select.fill').on('select2:select.fill', function () {
+    autofill(this, PRODUTOS);
+  });
+}
+
+/* ── Qtd / Preço → recalcula ao digitar ── */
+$(document).on('input', '#tbody-srv .qtd, #tbody-srv .preco, #tbody-peca .qtd, #tbody-peca .preco, [name="desconto_valor"]', recalc);
+
+/* ── Remover linha ── */
+$(document).on('click', '.btn-remove', function () {
+  const row = this.closest('tr.fs-row');
+  const del = row.querySelector('input[type=checkbox][id$="-DELETE"]');
+  if (del) {
+    del.checked = true;
+    row.classList.add('row-deleted');
+  } else {
+    row.remove();
+  }
+  recalc();
+});
+
+/* ── Adicionar nova linha ── */
+function addRow(prefix) {
+  const tbody   = document.getElementById(`tbody-${prefix}`);
+  const tmpl    = document.getElementById(`tmpl-${prefix}`);
+  const counter = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
+  const idx     = parseInt(counter.value);
+
+  const html = tmpl.innerHTML.replaceAll('IDX', idx);
+  const tmp  = document.createElement('tbody');
+  tmp.innerHTML = html;
+  const row = tmp.firstElementChild;
+  tbody.appendChild(row);
+  counter.value = idx + 1;
+
+  /* Inicializa Select2 + auto-fill na nova linha */
+  const selSrv  = row.querySelector('.sel-servico');
+  const selProd = row.querySelector('.sel-produto');
+  if (selSrv)  initServicoSelect(selSrv);
+  if (selProd) initProdutoSelect(selProd);
+
+  row.querySelector('select, input:not([type=hidden])')?.focus();
+  recalc();
+}
+
+document.getElementById('btn-add-srv').addEventListener('click',  () => addRow('srv'));
+document.getElementById('btn-add-peca').addEventListener('click', () => addRow('peca'));
+
+/* ── Filtro veículo por cliente ── */
+function carregarVeiculos(clienteId, veiculoSelecionado) {
+  const sel = document.getElementById('id_veiculo');
+  if (!clienteId || !sel) return;
+  fetch(`/veiculos/ajax/por-cliente/${clienteId}/`)
+    .then(r => r.json())
+    .then(({ results }) => {
+      /* Destrói o Select2 para limpar o cache interno antes de repopular */
+      if ($(sel).data('select2')) $(sel).select2('destroy');
+      /* Repopula o <select> nativo */
+      $(sel).empty().append(new Option('— Selecione o veículo —', '', true, false));
+      results.forEach(v => $(sel).append(new Option(v.text, v.id, false, false)));
+      /* Reinicializa o Select2 com as novas opções do DOM */
+      s2base(sel);
+      /* Define a seleção — .val() + .trigger('change') é a API correta do Select2 */
+      if (veiculoSelecionado) $(sel).val(String(veiculoSelecionado)).trigger('change');
+    })
+    .catch(() => {});
+}
+
+/* ── Inicialização geral ── */
+$(document).ready(function () {
+
+  /* Select2 para os campos do formulário principal */
+  ['#id_cliente', '#id_veiculo', '#id_mecanico'].forEach(id => {
+    const el = document.querySelector(id);
+    if (el) s2base(el);
+  });
+
+  /* Inicializa Select2 + auto-fill nas linhas existentes (GET ou POST com erro) */
+  document.querySelectorAll('#tbody-srv  .sel-servico').forEach(initServicoSelect);
+  document.querySelectorAll('#tbody-peca .sel-produto').forEach(initProdutoSelect);
+
+  /* Filtro veículo × cliente */
+  /* veiculo_inicial: preenchido pelo servidor quando vindo de ?veiculo=X (ex: ficha do veículo) */
+  const veiculoAtual = '{{ form.instance.veiculo_id|default:"" }}' || '{{ veiculo_inicial|default:"" }}';
+  $('#id_cliente').on('select2:select', function () {
+    carregarVeiculos(this.value, null);
+  });
+  const clienteInicial = document.getElementById('id_cliente')?.value;
+  if (clienteInicial) carregarVeiculos(clienteInicial, veiculoAtual);
+
+  recalc();
+});
+</script>
+{% endblock %}

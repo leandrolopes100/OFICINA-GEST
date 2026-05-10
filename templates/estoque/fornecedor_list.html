@@ -1,49 +1,132 @@
 {% extends 'base.html' %}
 {% block title %}Fornecedores{% endblock %}
 {% block content %}
+
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0 fw-bold"><i class="bi bi-truck text-primary"></i> Fornecedores</h4>
   <a href="{% url 'estoque:fornecedor_create' %}" class="btn btn-primary btn-sm">
     <i class="bi bi-plus-circle"></i> Novo Fornecedor
   </a>
 </div>
+
 <div class="card">
   <div class="card-body">
+
+    {# ── Tabs Ativos / Inativos ── #}
+    <div class="btn-group btn-group-sm mb-3" role="group">
+      <a href="?status=ativos{% if q %}&q={{ q }}{% endif %}"
+         class="btn {% if status_filtro == 'ativos' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        <i class="bi bi-check-circle"></i> Ativos
+      </a>
+      <a href="?status=inativos{% if q %}&q={{ q }}{% endif %}"
+         class="btn {% if status_filtro == 'inativos' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+        <i class="bi bi-eye-slash"></i> Inativos
+        {% if total_inativos > 0 %}
+        <span class="badge {% if status_filtro == 'inativos' %}bg-light text-dark{% else %}bg-danger{% endif %} ms-1">
+          {{ total_inativos }}
+        </span>
+        {% endif %}
+      </a>
+    </div>
+
+    {# ── Busca ── #}
     <form method="get" class="row g-2 mb-3">
+      <input type="hidden" name="status" value="{{ status_filtro }}">
       <div class="col-md-5">
-        <input type="text" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="Buscar por nome ou CNPJ...">
+        <input type="text" name="q" value="{{ q }}" class="form-control"
+               placeholder="Buscar por nome ou CNPJ...">
       </div>
       <div class="col-auto">
-        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i> Buscar</button>
-        <a href="{% url 'estoque:fornecedor_list' %}" class="btn btn-outline-secondary">Limpar</a>
+        <button type="submit" class="btn btn-outline-primary">
+          <i class="bi bi-search"></i> Buscar
+        </button>
+        {% if q %}
+        <a href="?status={{ status_filtro }}" class="btn btn-outline-secondary">Limpar</a>
+        {% endif %}
       </div>
     </form>
+
+    {# ── Tabela ── #}
     <div class="table-responsive">
       <table class="table table-hover">
         <thead class="table-light">
-          <tr><th>Nome</th><th>CNPJ</th><th>Contato</th><th>Telefone</th><th>E-mail</th><th>Produtos</th><th>Ações</th></tr>
+          <tr>
+            <th>Nome</th><th>CNPJ</th><th>Contato</th>
+            <th>Telefone</th><th>E-mail</th><th>Produtos</th><th>Ações</th>
+          </tr>
         </thead>
         <tbody>
           {% for f in fornecedores %}
-          <tr>
-            <td class="fw-semibold">{{ f.nome }}</td>
+          <tr {% if not f.ativo %}class="text-muted"{% endif %}>
+            <td class="fw-semibold">
+              {{ f.nome }}
+              {% if not f.ativo %}
+              <span class="badge bg-secondary ms-1 small">Inativo</span>
+              {% endif %}
+            </td>
             <td>{{ f.cnpj|default:"—" }}</td>
             <td>{{ f.contato|default:"—" }}</td>
             <td>{{ f.telefone|default:"—" }}</td>
             <td>{{ f.email|default:"—" }}</td>
             <td><span class="badge bg-secondary">{{ f.produtos.count }}</span></td>
             <td>
-              <a href="{% url 'estoque:fornecedor_update' f.pk %}" class="btn btn-sm btn-outline-warning">
+              <a href="{% url 'estoque:fornecedor_update' f.pk %}"
+                 class="btn btn-sm btn-outline-warning" title="Editar">
                 <i class="bi bi-pencil"></i>
+              </a>
+              {% if not f.ativo %}
+              <form method="post" action="{% url 'estoque:fornecedor_reativar' f.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-success" title="Reativar fornecedor"
+                        onclick="return confirm('Reativar o fornecedor &quot;{{ f.nome }}&quot;?')">
+                  <i class="bi bi-arrow-counterclockwise"></i>
+                </button>
+              </form>
+              {% endif %}
+              <a href="{% url 'estoque:fornecedor_delete' f.pk %}"
+                 class="btn btn-sm btn-outline-danger" title="Excluir / Inativar">
+                <i class="bi bi-trash"></i>
               </a>
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="7" class="text-center text-muted py-4">Nenhum fornecedor cadastrado.</td></tr>
+          <tr>
+            <td colspan="7" class="text-center text-muted py-4">
+              {% if status_filtro == 'inativos' %}
+                Nenhum fornecedor inativo encontrado.
+              {% else %}
+                Nenhum fornecedor cadastrado.
+              {% endif %}
+            </td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+
+    {# ── Paginação ── #}
+    {% if is_paginated %}
+    <nav>
+      <ul class="pagination pagination-sm justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link"
+             href="?page={{ page_obj.previous_page_number }}&status={{ status_filtro }}{% if q %}&q={{ q }}{% endif %}">«</a>
+        </li>
+        {% endif %}
+        <li class="page-item active">
+          <a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a>
+        </li>
+        {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link"
+             href="?page={{ page_obj.next_page_number }}&status={{ status_filtro }}{% if q %}&q={{ q }}{% endif %}">»</a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% endif %}
+
   </div>
 </div>
 {% endblock %}

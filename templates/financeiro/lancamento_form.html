@@ -1,6 +1,13 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
 {% block title %}{% if object %}Editar{% else %}Novo{% endif %} Lançamento{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+<style>.select2-container { width: 100% !important; }</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0 fw-bold">
@@ -18,4 +25,99 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+var FORMAS_DATA = {% if formas_data %}{{ formas_data|safe }}{% else %}{}{% endif %};
+
+var sugestaoTipo = {
+  'servico':    'receita',
+  'venda_peca': 'receita',
+  'fornecedor': 'despesa',
+  'salario':    'despesa',
+  'aluguel':    'despesa',
+  'utilidades': 'despesa',
+  'manutencao': 'despesa',
+};
+
+function brl(n) {
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function addDias(dateStr, dias) {
+  var p = dateStr.split('-');
+  var d = new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
+  d.setDate(d.getDate() + dias);
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+}
+
+function atualizarBadgeTaxa() {
+  var formaId  = $('#id_forma_pagamento').val();
+  var valorStr = $('#id_valor').val().replace(',', '.');
+  var valor    = parseFloat(valorStr) || 0;
+  var $badge   = $('#badge-taxa');
+
+  if (formaId && FORMAS_DATA[formaId] && FORMAS_DATA[formaId].taxa > 0 && valor > 0) {
+    var taxa      = FORMAS_DATA[formaId].taxa;
+    var vlrTaxa   = valor * taxa / 100;
+    var liquido   = valor - vlrTaxa;
+    $badge.html(
+      '<i class="bi bi-info-circle text-info"></i> ' +
+      'Taxa de <strong>' + brl(taxa) + '%</strong>: ' +
+      '<span class="text-warning fw-semibold">R$ ' + brl(vlrTaxa) + '</span>' +
+      ' &rarr; Líquido: <strong class="text-success">R$ ' + brl(liquido) + '</strong>'
+    ).show();
+  } else {
+    $badge.hide();
+  }
+}
+
+function preencherVencimento() {
+  var formaId  = $('#id_forma_pagamento').val();
+  var dataComp = $('#id_data_competencia').val();
+  if (!formaId || !FORMAS_DATA[formaId] || FORMAS_DATA[formaId].prazo_dias <= 0 || !dataComp) return;
+  $('#id_data_vencimento').val(addDias(dataComp, FORMAS_DATA[formaId].prazo_dias));
+}
+
+$(document).ready(function () {
+  $('select').select2({
+    theme: 'bootstrap-5',
+    width: '100%',
+    language: { noResults: () => 'Nenhum resultado encontrado' },
+  });
+
+  // Injeta badge abaixo do campo valor
+  $('#id_valor').closest('.mb-3').append(
+    '<div id="badge-taxa" class="form-text mt-1" style="display:none"></div>'
+  );
+
+  // Sugestão de tipo por categoria
+  $('#id_categoria').on('select2:select', function () {
+    var sugerido = sugestaoTipo[$(this).val()];
+    var $tipo = $('#id_tipo');
+    if (sugerido && (!$tipo.val() || $tipo.val() === '')) {
+      $tipo.val(sugerido).trigger('change');
+    }
+  });
+
+  // Forma de pagamento: atualiza badge e vencimento
+  $('#id_forma_pagamento').on('change', function () {
+    atualizarBadgeTaxa();
+    preencherVencimento();
+  });
+
+  // Valor: atualiza badge
+  $('#id_valor').on('input', atualizarBadgeTaxa);
+
+  // Data competência: atualiza vencimento
+  $('#id_data_competencia').on('change', preencherVencimento);
+
+  // Inicializa ao carregar (útil na edição)
+  atualizarBadgeTaxa();
+});
+</script>
 {% endblock %}

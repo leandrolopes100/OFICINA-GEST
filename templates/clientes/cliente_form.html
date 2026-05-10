@@ -1,6 +1,13 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
 {% block title %}{% if object %}Editar{% else %}Novo{% endif %} Cliente{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+<style>.select2-container { width: 100% !important; }</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0 fw-bold">
@@ -16,4 +23,65 @@
     {% crispy form %}
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function () {
+  $('select').select2({
+    theme: 'bootstrap-5',
+    width: '100%',
+    language: { noResults: () => 'Nenhum resultado encontrado' },
+  });
+
+  // ViaCEP — preenchimento automático de endereço pelo CEP
+  $('#id_cep').on('blur', function () {
+    var cep = $(this).val().replace(/\D/g, '');
+    if (cep.length !== 8) return;
+
+    var $campos = $('#id_logradouro, #id_bairro, #id_cidade');
+    $campos.prop('readonly', true).addClass('bg-light');
+
+    fetch('https://viacep.com.br/ws/' + cep + '/json/')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.erro) {
+          alert('CEP não encontrado. Preencha o endereço manualmente.');
+          return;
+        }
+        $('#id_logradouro').val(data.logradouro || '');
+        $('#id_bairro').val(data.bairro || '');
+        $('#id_cidade').val(data.localidade || '');
+        $('#id_estado').val(data.uf || '').trigger('change');
+      })
+      .catch(function () {
+        alert('Erro ao consultar o CEP. Verifique sua conexão.');
+      })
+      .finally(function () {
+        $campos.prop('readonly', false).removeClass('bg-light');
+      });
+  });
+
+  // Máscara dinâmica CPF/CNPJ — troca conforme tipo_pessoa
+  var cpfCnpjEl    = document.getElementById('id_cpf_cnpj');
+  var tipoPessoaEl = document.getElementById('id_tipo_pessoa');
+
+  if (cpfCnpjEl && tipoPessoaEl) {
+    var maskCpfCnpj = null;
+
+    function aplicarMascaraCpfCnpj() {
+      if (maskCpfCnpj) { maskCpfCnpj.destroy(); maskCpfCnpj = null; }
+      var isPJ = tipoPessoaEl.value === 'J';
+      maskCpfCnpj = IMask(cpfCnpjEl, {
+        mask: isPJ ? '00.000.000/0000-00' : '000.000.000-00'
+      });
+    }
+
+    aplicarMascaraCpfCnpj();
+    // jQuery change captura tanto Select2 quanto mudança nativa
+    $(tipoPessoaEl).on('change', aplicarMascaraCpfCnpj);
+  }
+});
+</script>
 {% endblock %}

@@ -21,7 +21,7 @@ def gerar_pdf_orcamento(orcamento):
     small = ParagraphStyle('small', parent=styles['Normal'], fontSize=8)
 
     # Header
-    story.append(Paragraph('ORÇAMENTO DE SERVIÇOS', title_style))
+    story.append(Paragraph('ORÇAMENTO DE SERVIÇOS - OFICINA RUBI', title_style))
     story.append(Paragraph(f'<b>Nº {orcamento.numero}</b>', ParagraphStyle('num', parent=styles['Normal'], alignment=TA_CENTER, fontSize=12)))
     story.append(Spacer(1, 0.5*cm))
 

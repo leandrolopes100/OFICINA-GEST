@@ -1,32 +1,115 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
 {% block title %}Meu Perfil{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+<style>
+  .select2-container { width: 100% !important; }
+  .avatar-preview {
+    width: 80px; height: 80px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 3px solid #dee2e6;
+  }
+  .avatar-initials {
+    width: 80px; height: 80px;
+    font-size: 2rem;
+    border-radius: 50%;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-center mb-4">
   <h4 class="mb-0 fw-bold"><i class="bi bi-person-circle text-primary"></i> Meu Perfil</h4>
   <a href="{% url 'accounts:password_change' %}" class="btn btn-outline-warning btn-sm">
     <i class="bi bi-key-fill"></i> Alterar Senha
   </a>
 </div>
-<div class="row justify-content-center">
-  <div class="col-md-8">
-    <div class="card mb-3">
-      <div class="card-header">
-        <div class="d-flex align-items-center gap-3">
-          <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
-               style="width:50px;height:50px;font-size:1.4rem">
+
+<div class="row justify-content-center g-4">
+
+  <!-- Coluna esquerda: resumo + info de conta -->
+  <div class="col-md-4 col-lg-3">
+
+    <!-- Card de identidade -->
+    <div class="card mb-3 text-center">
+      <div class="card-body py-4">
+        {% if user.avatar %}
+          <img src="{{ user.avatar.url }}" class="avatar-preview mb-3" alt="Avatar">
+        {% else %}
+          <div class="avatar-initials bg-primary text-white d-flex align-items-center justify-content-center mx-auto mb-3">
             {{ user.first_name.0|upper|default:user.username.0|upper }}
           </div>
-          <div>
-            <div class="fw-bold">{{ user.get_full_name|default:user.username }}</div>
-            <small class="text-muted">{{ user.get_role_display }}</small>
+        {% endif %}
+        <div class="fw-bold fs-6">{{ user.get_full_name|default:user.username }}</div>
+        <div class="text-muted small">@{{ user.username }}</div>
+      </div>
+    </div>
+
+    <!-- Card de informações da conta (somente leitura) -->
+    <div class="card">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-info-circle text-secondary"></i> Informações da Conta
+      </div>
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <span class="text-muted small">Perfil</span>
+          <span class="badge bg-primary rounded-pill">{{ user.get_role_display }}</span>
+        </li>
+        <li class="list-group-item">
+          <div class="text-muted small">Membro desde</div>
+          <div class="small fw-semibold">{{ user.date_joined|date:"d/m/Y" }}</div>
+        </li>
+        <li class="list-group-item">
+          <div class="text-muted small">Último acesso</div>
+          <div class="small fw-semibold">
+            {% if user.last_login %}
+              {{ user.last_login|date:"d/m/Y \à\s H:i" }}
+            {% else %}
+              —
+            {% endif %}
           </div>
-        </div>
+        </li>
+        <li class="list-group-item">
+          <div class="text-muted small">Status</div>
+          {% if user.is_active %}
+            <span class="badge bg-success">Ativo</span>
+          {% else %}
+            <span class="badge bg-danger">Inativo</span>
+          {% endif %}
+        </li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- Coluna direita: formulário de edição -->
+  <div class="col-md-8 col-lg-7">
+    <div class="card">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-pencil-square text-primary"></i> Editar Perfil
       </div>
       <div class="card-body">
         {% crispy form %}
       </div>
     </div>
   </div>
+
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function () {
+  $('select').select2({
+    theme: 'bootstrap-5',
+    width: '100%',
+    language: { noResults: () => 'Nenhum resultado encontrado' },
+  });
+});
+</script>
 {% endblock %}

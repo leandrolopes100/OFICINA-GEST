@@ -1,0 +1,450 @@
+{% load oficina_tags %}<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ORC-{{ orcamento.numero }} — Impressão</title>
+  <style>
+    :root {
+      --azul:    #1a1a2e;
+      --azul-lt: #e8e8f0;
+      --cinza:   #6c757d;
+      --borda:   #dee2e6;
+      --linha:   #f8f9fa;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, 'Segoe UI', sans-serif;
+      font-size: 10pt;
+      color: #212529;
+      background: #f0f2f5;
+    }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      background: var(--azul);
+      color: #fff;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .toolbar h6 { margin: 0; font-size: 13px; opacity: .85; }
+    .toolbar-actions { display: flex; gap: 8px; }
+    .btn-print {
+      background: #ffc107; color: #000;
+      border: none; border-radius: 6px;
+      padding: 7px 16px; font-size: 13px;
+      font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .btn-back {
+      background: transparent; color: #adb5bd;
+      border: 1px solid #495057; border-radius: 6px;
+      padding: 7px 14px; font-size: 13px;
+      cursor: pointer; text-decoration: none;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .btn-back:hover { color: #fff; border-color: #fff; }
+
+    /* ── Folha A4 ── */
+    .page-wrapper {
+      max-width: 210mm;
+      margin: 20px auto;
+      background: #fff;
+      box-shadow: 0 4px 20px rgba(0,0,0,.15);
+    }
+    .page { padding: 15mm; }
+
+    /* ── Cabeçalho ── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 3px solid var(--azul);
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+    .company-name {
+      font-size: 18pt;
+      font-weight: 700;
+      color: var(--azul);
+      line-height: 1.1;
+    }
+    .company-sub { font-size: 8pt; color: var(--cinza); margin-top: 2px; }
+    .orc-badge { text-align: right; }
+    .orc-num { font-size: 16pt; font-weight: 700; color: var(--azul); }
+    .orc-status {
+      display: inline-block;
+      font-size: 8pt; font-weight: 600;
+      padding: 2px 8px; border-radius: 4px; margin-top: 3px;
+    }
+    .status-rascunho   { background: #e2e3e5; color: #41464b; }
+    .status-enviado    { background: #cff4fc; color: #055160; }
+    .status-aprovado   { background: #d1e7dd; color: #0a3622; }
+    .status-reprovado  { background: #f8d7da; color: #58151c; }
+    .status-expirado   { background: #fff3cd; color: #664d03; }
+    .status-cancelado  { background: #e2e3e5; color: #41464b; }
+    .orc-date { font-size: 8pt; color: var(--cinza); margin-top: 4px; }
+
+    /* ── Grid de informações ── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      border: 1px solid var(--borda);
+      border-radius: 4px;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+    .info-box { padding: 8px 10px; border-right: 1px solid var(--borda); }
+    .info-box:last-child { border-right: none; }
+    .info-box-title {
+      font-size: 7pt; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .5px;
+      color: #fff; background: var(--azul);
+      padding: 3px 10px; margin: -8px -10px 7px;
+    }
+    .info-row { display: flex; gap: 4px; margin-bottom: 3px; font-size: 9pt; line-height: 1.4; }
+    .info-label { font-weight: 600; color: var(--cinza); white-space: nowrap; min-width: 80px; }
+    .info-value { color: #212529; }
+
+    /* ── Metadata do orçamento ── */
+    .orc-meta {
+      display: flex; gap: 0;
+      border: 1px solid var(--borda);
+      border-radius: 4px; overflow: hidden;
+      margin-bottom: 10px; font-size: 9pt;
+    }
+    .orc-meta-item { flex: 1; padding: 5px 10px; border-right: 1px solid var(--borda); }
+    .orc-meta-item:last-child { border-right: none; }
+    .orc-meta-label {
+      font-size: 7pt; font-weight: 700;
+      text-transform: uppercase; color: var(--cinza);
+      display: block; margin-bottom: 1px;
+    }
+
+    /* ── Tabelas de itens ── */
+    .items-table {
+      width: 100%; border-collapse: collapse;
+      margin-bottom: 10px; font-size: 9pt;
+    }
+    .items-table thead tr { background: var(--azul); color: #fff; }
+    .items-table th {
+      padding: 5px 8px; font-weight: 600;
+      font-size: 8pt; text-transform: uppercase; letter-spacing: .3px;
+    }
+    .items-table th.r, .items-table td.r { text-align: right; }
+    .items-table th.c, .items-table td.c { text-align: center; }
+    .items-table tbody tr:nth-child(even) { background: var(--linha); }
+    .items-table td { padding: 5px 8px; border-bottom: 1px solid var(--borda); }
+    .thead-green { background: #198754 !important; }
+
+    /* ── Totais ── */
+    .totals-wrap { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+    .totals-table { width: 240px; border-collapse: collapse; font-size: 9.5pt; }
+    .totals-table td { padding: 3px 8px; }
+    .totals-table td:last-child { text-align: right; font-weight: 600; }
+    .totals-table .total-row {
+      background: var(--azul); color: #fff;
+      font-size: 11pt; font-weight: 700;
+    }
+    .totals-table .total-row td { padding: 6px 8px; }
+    .totals-table .desc-row td { color: #dc3545; }
+
+    /* ── Validade / Aviso ── */
+    .validade-strip {
+      border: 1px solid #a3cfbb; background: #d1e7dd;
+      border-radius: 4px; padding: 6px 10px;
+      font-size: 9pt; margin-bottom: 10px;
+      display: flex; gap: 16px; flex-wrap: wrap;
+    }
+    .validade-strip span { font-weight: 600; }
+
+    /* ── Seção de texto ── */
+    .section {
+      border: 1px solid var(--borda); border-radius: 4px;
+      margin-bottom: 10px; overflow: hidden;
+    }
+    .section-title {
+      background: var(--azul-lt); font-size: 8pt; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .5px;
+      color: var(--azul); padding: 4px 10px;
+      border-bottom: 1px solid var(--borda);
+    }
+    .section-body { padding: 7px 10px; font-size: 9.5pt; line-height: 1.5; }
+
+    /* ── Assinatura ── */
+    .signatures {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 20px; margin-top: 16px;
+      page-break-inside: avoid;
+    }
+    .sig-box { border-top: 1.5px solid #495057; padding-top: 5px; }
+    .sig-label { font-size: 8pt; color: var(--cinza); }
+    .sig-spacer { height: 30px; }
+    .sig-sub { font-size: 8pt; color: var(--cinza); margin-top: 3px; }
+
+    /* ── Rodapé ── */
+    .print-footer {
+      border-top: 1px solid var(--borda); margin-top: 16px;
+      padding-top: 6px; font-size: 7.5pt; color: var(--cinza);
+      display: flex; justify-content: space-between;
+    }
+
+    /* ── @media print ── */
+    @media print {
+      @page { size: A4; margin: 12mm 15mm 15mm 15mm; }
+      body { background: #fff; font-size: 9.5pt; }
+      .toolbar { display: none !important; }
+      .page-wrapper { box-shadow: none; margin: 0; max-width: 100%; }
+      .page { padding: 0; }
+      .info-grid, .section, .orc-meta { break-inside: avoid; }
+      .items-table { break-inside: auto; }
+      .items-table tr { break-inside: avoid; }
+      .signatures { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+{# ── Toolbar ── #}
+<div class="toolbar">
+  <h6>Pré-visualização de Impressão — ORC-{{ orcamento.numero }}</h6>
+  <div class="toolbar-actions">
+    <button class="btn-print" onclick="window.print()">
+      🖨 Imprimir / Salvar como PDF
+    </button>
+    <a href="{% url 'orcamentos:detail' orcamento.pk %}" class="btn-back">
+      ← Voltar
+    </a>
+  </div>
+</div>
+
+<div class="page-wrapper">
+<div class="page">
+
+  {# ── 1. Cabeçalho ── #}
+  <div class="header">
+    <div>
+      <div class="company-name">Oficina-Gest</div>
+      <div class="company-sub">Sistema de Gestão — Orçamento de Serviços</div>
+    </div>
+    <div class="orc-badge">
+      <div class="orc-num">ORC-{{ orcamento.numero }}</div>
+      <div>
+        <span class="orc-status status-{{ orcamento.status }}">{{ orcamento.get_status_display }}</span>
+      </div>
+      <div class="orc-date">Emissão: {{ orcamento.data_criacao|date:"d/m/Y" }}</div>
+    </div>
+  </div>
+
+  {# ── 2. Cliente + Veículo ── #}
+  <div class="info-grid">
+    <div class="info-box">
+      <div class="info-box-title">Cliente</div>
+      <div class="info-row"><span class="info-label">Nome:</span><span class="info-value">{{ orcamento.cliente.nome }}</span></div>
+      <div class="info-row"><span class="info-label">CPF/CNPJ:</span><span class="info-value">{{ orcamento.cliente.cpf_cnpj|cpf_cnpj }}</span></div>
+      <div class="info-row"><span class="info-label">Telefone:</span><span class="info-value">{{ orcamento.cliente.telefone }}{% if orcamento.cliente.celular %} · {{ orcamento.cliente.celular }}{% endif %}</span></div>
+      {% if orcamento.cliente.email %}
+      <div class="info-row"><span class="info-label">E-mail:</span><span class="info-value">{{ orcamento.cliente.email }}</span></div>
+      {% endif %}
+      {% if orcamento.cliente.endereco_completo %}
+      <div class="info-row"><span class="info-label">Endereço:</span><span class="info-value">{{ orcamento.cliente.endereco_completo }}</span></div>
+      {% endif %}
+    </div>
+    <div class="info-box" style="border-right:none">
+      <div class="info-box-title">Veículo</div>
+      <div class="info-row"><span class="info-label">Placa:</span><span class="info-value" style="font-weight:700">{{ orcamento.veiculo.placa }}</span></div>
+      <div class="info-row"><span class="info-label">Modelo:</span><span class="info-value">{{ orcamento.veiculo.modelo }} {{ orcamento.veiculo.ano_fabricacao }}/{{ orcamento.veiculo.ano_modelo }}</span></div>
+      <div class="info-row"><span class="info-label">Cor:</span><span class="info-value">{{ orcamento.veiculo.cor|default:"—" }}</span></div>
+      <div class="info-row"><span class="info-label">Combustível:</span><span class="info-value">{{ orcamento.veiculo.get_combustivel_display }}</span></div>
+      <div class="info-row"><span class="info-label">KM Entrada:</span><span class="info-value">{{ orcamento.km_entrada|floatformat:0 }} km</span></div>
+    </div>
+  </div>
+
+  {# ── 3. Metadata do orçamento ── #}
+  <div class="orc-meta">
+    <div class="orc-meta-item">
+      <span class="orc-meta-label">Data de Emissão</span>
+      {{ orcamento.data_criacao|date:"d/m/Y" }}
+    </div>
+    <div class="orc-meta-item">
+      <span class="orc-meta-label">Válido até</span>
+      <strong>{{ orcamento.data_validade|date:"d/m/Y" }}</strong>
+    </div>
+    {% if orcamento.data_aprovacao %}
+    <div class="orc-meta-item">
+      <span class="orc-meta-label">Aprovado em</span>
+      {{ orcamento.data_aprovacao|date:"d/m/Y" }}
+    </div>
+    {% endif %}
+    {% if orcamento.criado_por %}
+    <div class="orc-meta-item" {% if not orcamento.data_aprovacao %}style="border-right:none"{% endif %}>
+      <span class="orc-meta-label">Elaborado por</span>
+      {{ orcamento.criado_por.get_full_name|default:orcamento.criado_por.username }}
+    </div>
+    {% endif %}
+    {% if orcamento.orcamento.ordem_servico %}
+    <div class="orc-meta-item" style="border-right:none">
+      <span class="orc-meta-label">OS Gerada</span>
+      OS-{{ orcamento.ordem_servico.numero }}
+    </div>
+    {% endif %}
+  </div>
+
+  {# ── 4. Tabela de serviços ── #}
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th class="c" style="width:28px">#</th>
+        <th>Serviço / Mão de Obra</th>
+        <th class="c" style="width:50px">Qtd</th>
+        <th class="r" style="width:90px">Valor Unit.</th>
+        <th class="r" style="width:90px">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in itens_servico %}
+      <tr>
+        <td class="c" style="color:#6c757d">{{ forloop.counter }}</td>
+        <td>{{ item.descricao }}</td>
+        <td class="c">{{ item.quantidade|floatformat:"-2" }}</td>
+        <td class="r">{{ item.preco_unitario|currency }}</td>
+        <td class="r" style="font-weight:600">{{ item.total|currency }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center;color:#6c757d;padding:10px">Nenhum serviço informado.</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if itens_servico %}
+    <tfoot>
+      <tr>
+        <td colspan="4" style="text-align:right;font-weight:600;color:#212529">Subtotal Serviços:</td>
+        <td style="text-align:right;font-weight:600">{{ orcamento.subtotal_servicos|currency }}</td>
+      </tr>
+    </tfoot>
+    {% endif %}
+  </table>
+
+  {# ── 5. Tabela de peças ── #}
+  <table class="items-table">
+    <thead class="thead-green">
+      <tr>
+        <th class="c" style="width:28px">#</th>
+        <th>Peça / Material</th>
+        <th class="c" style="width:50px">Qtd</th>
+        <th class="r" style="width:90px">Valor Unit.</th>
+        <th class="r" style="width:90px">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in itens_peca %}
+      <tr>
+        <td class="c" style="color:#6c757d">{{ forloop.counter }}</td>
+        <td>{{ item.descricao }}</td>
+        <td class="c">{{ item.quantidade|floatformat:"-3" }}</td>
+        <td class="r">{{ item.preco_unitario|currency }}</td>
+        <td class="r" style="font-weight:600">{{ item.total|currency }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center;color:#6c757d;padding:10px">Nenhuma peça informada.</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if itens_peca %}
+    <tfoot>
+      <tr>
+        <td colspan="4" style="text-align:right;font-weight:600;color:#212529">Subtotal Peças:</td>
+        <td style="text-align:right;font-weight:600">{{ orcamento.subtotal_pecas|currency }}</td>
+      </tr>
+    </tfoot>
+    {% endif %}
+  </table>
+
+  {# ── 6. Totais ── #}
+  <div class="totals-wrap">
+    <table class="totals-table">
+      <tr>
+        <td>Subtotal Serviços</td>
+        <td>{{ orcamento.subtotal_servicos|currency }}</td>
+      </tr>
+      <tr>
+        <td>Subtotal Peças</td>
+        <td>{{ orcamento.subtotal_pecas|currency }}</td>
+      </tr>
+      {% if orcamento.desconto_valor %}
+      <tr class="desc-row">
+        <td>Desconto{% if orcamento.desconto_percentual %} ({{ orcamento.desconto_percentual }}%){% endif %}</td>
+        <td>− {{ orcamento.desconto_valor|currency }}</td>
+      </tr>
+      {% endif %}
+      {% if orcamento.taxa_valor %}
+      <tr>
+        <td>Taxa / Acréscimo</td>
+        <td>+ {{ orcamento.taxa_valor|currency }}</td>
+      </tr>
+      {% endif %}
+      <tr class="total-row">
+        <td>TOTAL</td>
+        <td>{{ orcamento.total|currency }}</td>
+      </tr>
+    </table>
+  </div>
+
+  {# ── 7. Validade ── #}
+  <div class="validade-strip">
+    <div>📅 Validade: <span>{{ orcamento.data_validade|date:"d/m/Y" }}</span></div>
+    <div>Status: <span>{{ orcamento.get_status_display }}</span></div>
+    {% if orcamento.data_aprovacao %}
+    <div>Aprovado em: <span>{{ orcamento.data_aprovacao|date:"d/m/Y" }}</span></div>
+    {% endif %}
+  </div>
+
+  {# ── 8. Observações e Condições ── #}
+  {% if orcamento.observacoes %}
+  <div class="section">
+    <div class="section-title">Observações</div>
+    <div class="section-body">{{ orcamento.observacoes }}</div>
+  </div>
+  {% endif %}
+  {% if orcamento.condicoes %}
+  <div class="section">
+    <div class="section-title">Condições / Garantia</div>
+    <div class="section-body">{{ orcamento.condicoes }}</div>
+  </div>
+  {% endif %}
+
+  {# ── 9. Assinaturas ── #}
+  <div class="signatures">
+    <div class="sig-box">
+      <div class="sig-spacer"></div>
+      <div class="sig-label">Aprovação do Cliente</div>
+      <div class="sig-sub">{{ orcamento.cliente.nome }}</div>
+      <div class="sig-sub" style="margin-top:6px">Data: _____ / _____ / _________</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-spacer"></div>
+      <div class="sig-label">Responsável pelo Orçamento</div>
+      {% if orcamento.criado_por %}
+      <div class="sig-sub">{{ orcamento.criado_por.get_full_name|default:orcamento.criado_por.username }}</div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── 10. Rodapé ── #}
+  <div class="print-footer">
+    <span>Oficina-Gest — Sistema de Gestão</span>
+    <span>ORC-{{ orcamento.numero }} · Emitido em: {{ orcamento.data_criacao|date:"d/m/Y" }}</span>
+  </div>
+
+</div>
+</div>
+
+</body>
+</html>

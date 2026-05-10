@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+{% load oficina_tags %}
+{% block title %}Remover Forma de Pagamento — {{ forma.nome }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold">
+    <i class="bi bi-credit-card text-danger"></i> Remover Forma de Pagamento
+  </h4>
+  <a href="{% url 'financeiro:formas_list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i> Voltar
+  </a>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-md-7">
+
+    {# ── Dados da forma de pagamento ── #}
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Forma de Pagamento</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-4">Nome</dt>
+          <dd class="col-8 fw-bold fs-6">{{ forma.nome }}</dd>
+          <dt class="col-4">Taxa</dt>
+          <dd class="col-8">{{ forma.taxa }}%</dd>
+          <dt class="col-4">Prazo</dt>
+          <dd class="col-8">{{ forma.prazo_dias }} dia{{ forma.prazo_dias|pluralize }}</dd>
+          <dt class="col-4">Situação</dt>
+          <dd class="col-8">
+            {% if forma.ativo %}
+              <span class="badge bg-success">Ativa</span>
+            {% else %}
+              <span class="badge bg-secondary">Inativa</span>
+            {% endif %}
+          </dd>
+          {% if n_total > 0 %}
+          <dt class="col-4">Lançamentos</dt>
+          <dd class="col-8">
+            {% if n_ativos > 0 %}
+              <span class="text-danger fw-semibold">{{ n_ativos }} pendente{{ n_ativos|pluralize }}/vencido{{ n_ativos|pluralize }}</span>{% if n_pagos or n_cancelados %},{% endif %}
+            {% endif %}
+            {% if n_pagos > 0 %}
+              <span class="text-success">{{ n_pagos }} pago{{ n_pagos|pluralize }}</span>{% if n_cancelados %},{% endif %}
+            {% endif %}
+            {% if n_cancelados > 0 %}
+              <span class="text-muted">{{ n_cancelados }} cancelado{{ n_cancelados|pluralize }}</span>
+            {% endif %}
+          </dd>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+
+   
+    {% if n_ativos > 0 %}
+
+    <div class="alert alert-danger d-flex gap-2">
+      <i class="bi bi-slash-circle-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        <strong>Exclusão bloqueada.</strong><br>
+        Há <strong>{{ n_ativos }} lançamento{{ n_ativos|pluralize }}</strong>
+        pendente{{ n_ativos|pluralize }} ou vencido{{ n_ativos|pluralize }} usando esta forma de pagamento.
+        Quite ou cancele-os antes de tentar excluir.
+      </div>
+    </div>
+
+    {% if forma.ativo %}
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-pause-circle"></i> Inativar forma de pagamento (disponível)
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-3">
+          A forma de pagamento deixará de aparecer em novos lançamentos.
+          Os registros existentes e o histórico financeiro são preservados integralmente.
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="inativar">
+          <button type="submit" class="btn btn-warning">
+            <i class="bi bi-pause-circle"></i> Inativar
+          </button>
+          <a href="{% url 'financeiro:formas_list' %}" class="btn btn-outline-secondary ms-2">Cancelar</a>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <a href="{% url 'financeiro:formas_list' %}" class="btn btn-outline-secondary">Voltar à lista</a>
+    {% endif %}
+
+    
+    {% elif n_total > 0 %}
+
+    <div class="alert alert-warning d-flex gap-2">
+      <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        <strong>Atenção: exclusão afeta o histórico financeiro.</strong><br>
+        {% if n_pagos > 0 %}
+          <strong>{{ n_pagos }} lançamento{{ n_pagos|pluralize }} pago{{ n_pagos|pluralize }}</strong>
+          {% if n_cancelados > 0 %}e {% endif %}
+        {% endif %}
+        {% if n_cancelados > 0 %}
+          <strong>{{ n_cancelados }} cancelado{{ n_cancelados|pluralize }}</strong>
+        {% endif %}
+        perderá{{ n_total|pluralize:"ão," }} a referência a <em>"{{ forma.nome }}"</em>.
+        Esses registros não poderão ser filtrados por forma de pagamento em relatórios futuros.
+      </div>
+    </div>
+
+    {# Opção recomendada: inativar #}
+    {% if forma.ativo %}
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-pause-circle"></i> Inativar (recomendado)
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-3">
+          A forma some dos novos lançamentos, mas o histórico fica intacto.
+          Relatórios passados continuam exibindo <em>"{{ forma.nome }}"</em> corretamente.
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="inativar">
+          <button type="submit" class="btn btn-warning">
+            <i class="bi bi-pause-circle"></i> Inativar
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {# Opção destrutiva: excluir mesmo assim #}
+    <div class="card border-danger mb-3">
+      <div class="card-header text-danger fw-semibold">
+        <i class="bi bi-trash"></i> Excluir permanentemente (ciente da perda de histórico)
+      </div>
+      <div class="card-body">
+        <p class="small text-danger mb-3">
+          Esta ação <strong>não pode ser desfeita</strong>.
+          {{ n_total }} lançamento{{ n_total|pluralize }} perderá{{ n_total|pluralize:"ão," }} a referência à forma de pagamento.
+        </p>
+        <button type="button" class="btn btn-danger"
+                data-bs-toggle="modal" data-bs-target="#modalConfirmarExclusao">
+          <i class="bi bi-trash"></i> Excluir permanentemente
+        </button>
+      </div>
+    </div>
+
+    <a href="{% url 'financeiro:formas_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+
+    {% else %}
+
+    <div class="alert alert-success d-flex gap-2">
+      <i class="bi bi-check-circle-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        Nenhum lançamento usa esta forma de pagamento.
+        A exclusão é <strong>completamente segura</strong> e não afeta nenhum registro existente.
+      </div>
+    </div>
+
+    {% if forma.ativo %}
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-pause-circle"></i> Inativar (alternativa)
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-3">
+          Mantém o cadastro mas impede uso em novos lançamentos.
+          Útil se quiser reativar futuramente.
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="inativar">
+          <button type="submit" class="btn btn-outline-warning">
+            <i class="bi bi-pause-circle"></i> Inativar
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card border-danger mb-3">
+      <div class="card-header text-danger fw-semibold">
+        <i class="bi bi-trash"></i> Excluir permanentemente
+      </div>
+      <div class="card-body">
+        <p class="small text-danger mb-3">
+          Remove o cadastro definitivamente. Esta ação não pode ser desfeita.
+        </p>
+        <button type="button" class="btn btn-danger"
+                data-bs-toggle="modal" data-bs-target="#modalConfirmarExclusao">
+          <i class="bi bi-trash"></i> Excluir permanentemente
+        </button>
+      </div>
+    </div>
+
+    <a href="{% url 'financeiro:formas_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+
+    {% endif %}
+
+  </div>
+</div>
+
+
+{% if n_ativos == 0 %}
+<div class="modal fade" id="modalConfirmarExclusao" tabindex="-1"
+     aria-labelledby="modalExclusaoTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="modalExclusaoTitulo">
+          <i class="bi bi-trash me-2"></i> Confirmar Exclusão Permanente
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="mb-3">Você está prestes a excluir permanentemente:</p>
+
+        <div class="rounded border px-3 py-2 bg-light mb-3 small">
+          <div class="fw-bold fs-6">{{ forma.nome }}</div>
+          <div class="text-muted">
+            Taxa: {{ forma.taxa }}% &nbsp;·&nbsp; Prazo: {{ forma.prazo_dias }} dias
+          </div>
+        </div>
+
+        {% if n_total > 0 %}
+        <div class="alert alert-warning py-2 small mb-3">
+          <i class="bi bi-exclamation-triangle-fill me-1"></i>
+          <strong>{{ n_total }} lançamento{{ n_total|pluralize }}</strong>
+          perderá{{ n_total|pluralize:"ão," }} a referência a esta forma de pagamento.
+          Relatórios históricos serão afetados.
+        </div>
+        {% else %}
+        <div class="alert alert-success py-2 small mb-3">
+          <i class="bi bi-check-circle-fill me-1"></i>
+          Nenhum lançamento vinculado. Exclusão sem impacto no histórico.
+        </div>
+        {% endif %}
+
+        <p class="text-danger fw-semibold mb-0">
+          <i class="bi bi-exclamation-circle me-1"></i>
+          Esta ação não pode ser desfeita.
+        </p>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg me-1"></i> Cancelar
+        </button>
+        <form method="post" class="d-inline">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="excluir">
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash me-1"></i> Excluir permanentemente
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

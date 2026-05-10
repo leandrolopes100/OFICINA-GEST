@@ -1,0 +1,72 @@
+[
+  {
+    "model": "estoque.categoria",
+    "pk": 1,
+    "fields": {
+      "nome": "Óleo e Lubrificantes"
+    }
+  },
+  {
+    "model": "estoque.categoria",
+    "pk": 2,
+    "fields": {
+      "nome": "Freios"
+    }
+  },
+  {
+    "model": "estoque.categoria",
+    "pk": 3,
+    "fields": {
+      "nome": "Suspensão"
+    }
+  },
+  {
+    "model": "estoque.categoria",
+    "pk": 4,
+    "fields": {
+      "nome": "Motor"
+    }
+  },
+  {
+    "model": "estoque.categoria",
+    "pk": 5,
+    "fields": {
+      "nome": "Elétrica"
+    }
+  },
+  {
+    "model": "estoque.categoria",
+    "pk": 6,
+    "fields": {
+      "nome": "Filtros"
+    }
+  },
+  {
+    "model": "estoque.categoria",
+    "pk": 7,
+    "fields": {
+      "nome": "Pneus"
+    }
+  },
+  {
+    "model": "estoque.categoria",
+    "pk": 8,
+    "fields": {
+      "nome": "Arrefecimento"
+    }
+  },
+  {
+    "model": "estoque.categoria",
+    "pk": 9,
+    "fields": {
+      "nome": "Transmissão"
+    }
+  },
+  {
+    "model": "estoque.categoria",
+    "pk": 10,
+    "fields": {
+      "nome": "Acessórios"
+    }
+  }
+]

@@ -27,8 +27,11 @@
             {% endif %}
           </td>
           <td>
-            <a href="{% url 'financeiro:formas_create' %}" class="btn btn-sm btn-outline-warning">
+            <a href="{% url 'financeiro:formas_update' f.pk %}" class="btn btn-sm btn-outline-warning" title="Editar">
               <i class="bi bi-pencil"></i>
+            </a>
+            <a href="{% url 'financeiro:formas_delete' f.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir / Inativar">
+              <i class="bi bi-trash"></i>
             </a>
           </td>
         </tr>
@@ -38,5 +41,26 @@
       </tbody>
     </table>
   </div>
+  {% if is_paginated %}
+  <div class="card-footer">
+    <nav>
+      <ul class="pagination pagination-sm justify-content-center mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}">«</a>
+        </li>
+        {% endif %}
+        <li class="page-item active">
+          <a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a>
+        </li>
+        {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}">»</a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

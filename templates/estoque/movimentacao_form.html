@@ -1,20 +1,260 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
 {% block title %}Nova Movimentação de Estoque{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+<style>
+.select2-container { width: 100% !important; }
+#painel-contexto { transition: all .2s; }
+.preview-estoque { font-size: 1.4rem; font-weight: 700; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0 fw-bold"><i class="bi bi-arrow-left-right text-primary"></i> Nova Movimentação de Estoque</h4>
+  <h4 class="mb-0 fw-bold">
+    <i class="bi bi-arrow-left-right text-primary"></i> Nova Movimentação de Estoque
+  </h4>
   <a href="{% url 'estoque:movimentacao_list' %}" class="btn btn-outline-secondary btn-sm">
     <i class="bi bi-arrow-left"></i> Voltar
   </a>
 </div>
-<div class="row justify-content-center">
-  <div class="col-md-8">
+
+{% if produto_reposicao %}
+<div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
+  <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+  <div>
+    <strong>Reposição de estoque:</strong> {{ produto_reposicao.nome }}
+    — Atual: <strong class="text-danger">{{ produto_reposicao.estoque_atual }}</strong>
+    / Mínimo: <strong>{{ produto_reposicao.estoque_minimo }}</strong>
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-3">
+
+  {# ── Formulário ── #}
+  <div class="col-md-7">
     <div class="card">
       <div class="card-body">
         {% crispy form %}
       </div>
     </div>
   </div>
+
+  {# ── Painel de contexto dinâmico ── #}
+  <div class="col-md-5">
+    <div id="painel-contexto" style="display:none">
+
+      {# Info do produto #}
+      <div class="card mb-3">
+        <div class="card-header fw-semibold small">
+          <i class="bi bi-box-seam"></i> Produto selecionado
+        </div>
+        <div class="card-body small">
+          <p class="fw-bold mb-2" id="ctx-produto-nome">—</p>
+          <div class="row g-2 text-center">
+            <div class="{% if request.user.role != 'mecanico' %}col-4{% else %}col-6{% endif %}">
+              <div class="text-muted" style="font-size:.7rem">ESTOQUE ATUAL</div>
+              <div id="ctx-estoque-atual" class="fw-bold fs-5">—</div>
+            </div>
+            <div class="{% if request.user.role != 'mecanico' %}col-4{% else %}col-6{% endif %}">
+              <div class="text-muted" style="font-size:.7rem">MÍNIMO</div>
+              <div id="ctx-estoque-minimo" class="fw-bold fs-5 text-muted">—</div>
+            </div>
+            {% if request.user.role != 'mecanico' %}
+            <div class="col-4">
+              <div class="text-muted" style="font-size:.7rem">CUSTO ATUAL</div>
+              <div id="ctx-preco-custo" class="fw-bold fs-5">—</div>
+            </div>
+            {% endif %}
+          </div>
+          <div id="ctx-alerta-minimo" class="alert alert-warning py-1 mt-2 mb-0 small d-none">
+            <i class="bi bi-exclamation-triangle-fill"></i> Produto abaixo do estoque mínimo
+          </div>
+        </div>
+      </div>
+
+      {# Explicação do tipo selecionado #}
+      <div id="ctx-tipo-info" class="alert mb-3" style="display:none">
+        <i id="ctx-tipo-icon" class="bi me-2"></i>
+        <span id="ctx-tipo-texto"></span>
+      </div>
+
+      {# Prévia do resultado #}
+      <div id="ctx-preview" class="card border-primary" style="display:none">
+        <div class="card-body text-center py-3">
+          <div class="text-muted small mb-1">Estoque após a movimentação</div>
+          <div id="ctx-novo-estoque" class="preview-estoque text-primary">—</div>
+          <div id="ctx-aviso-negativo" class="text-danger small mt-1 d-none">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            Atenção: estoque ficará negativo!
+          </div>
+          <div id="ctx-aviso-minimo" class="text-warning small mt-1 d-none">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            Resultado abaixo do estoque mínimo.
+          </div>
+        </div>
+      </div>
+
+    </div>{# fim painel-contexto #}
+
+    {# Mensagem inicial (antes de selecionar produto) #}
+    <div id="painel-instrucao" class="text-center text-muted mt-5">
+      <i class="bi bi-arrow-left-circle fs-2 d-block mb-2"></i>
+      Selecione um produto para ver as informações de estoque e uma prévia do resultado.
+    </div>
+  </div>
+
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+'use strict';
+
+/* ── Configuração por tipo de movimentação ── */
+const TIPO_CONFIG = {
+  entrada:   {
+    cor: 'success', icone: 'bi-plus-circle-fill',
+    texto: 'A quantidade informada será <strong>adicionada</strong> ao estoque atual.',
+    calc: (atual, qtd) => atual + qtd,
+  },
+  saida: {
+    cor: 'danger', icone: 'bi-dash-circle-fill',
+    texto: 'A quantidade informada será <strong>removida</strong> do estoque atual.',
+    calc: (atual, qtd) => atual - qtd,
+  },
+  ajuste: {
+    cor: 'warning', icone: 'bi-exclamation-triangle-fill',
+    texto: '<strong>Atenção:</strong> O estoque atual será <strong>substituído</strong> pelo valor informado. '
+         + 'Informe a quantidade real contada no inventário físico — não a diferença.',
+    calc: (atual, qtd) => qtd,
+  },
+  devolucao: {
+    cor: 'info', icone: 'bi-arrow-counterclockwise',
+    texto: 'A quantidade informada será <strong>adicionada</strong> ao estoque '
+         + '(produto devolvido pelo cliente).',
+    calc: (atual, qtd) => atual + qtd,
+  },
+};
+
+let _produto = null; // dados do produto selecionado
+
+const brl = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+/* ── Busca info do produto via AJAX ── */
+function carregarProduto(id) {
+  fetch(`/estoque/ajax/produto/${id}/`)
+    .then(r => r.json())
+    .then(data => {
+      _produto = data;
+      document.getElementById('ctx-produto-nome').textContent    = data.nome;
+      document.getElementById('ctx-estoque-atual').textContent   = `${data.estoque_atual} ${data.unidade}`;
+      document.getElementById('ctx-estoque-minimo').textContent  = `${data.estoque_minimo}`;
+      // preco_custo só vem na resposta para admin/recepcionista
+      const elCusto = document.getElementById('ctx-preco-custo');
+      if (elCusto) elCusto.textContent = data.preco_custo != null ? brl(data.preco_custo) : '—';
+
+      const alertaMin = document.getElementById('ctx-alerta-minimo');
+      if (data.abaixo_minimo) alertaMin.classList.remove('d-none');
+      else                    alertaMin.classList.add('d-none');
+
+      document.getElementById('ctx-estoque-atual').className =
+        'fw-bold fs-5 ' + (data.abaixo_minimo ? 'text-danger' : 'text-success');
+
+      document.getElementById('painel-instrucao').style.display = 'none';
+      document.getElementById('painel-contexto').style.display  = '';
+      atualizarPainel();
+    })
+    .catch(() => { _produto = null; });
+}
+
+/* ── Atualiza painel de tipo e prévia ── */
+function atualizarPainel() {
+  if (!_produto) return;
+
+  const tipo    = document.getElementById('id_tipo')?.value;
+  const qtdStr  = document.getElementById('id_quantidade')?.value || '0';
+  const qtd     = parseFloat(qtdStr.replace(',', '.')) || 0;
+  const cfg     = TIPO_CONFIG[tipo];
+
+  // Tipo info
+  const tipoDiv   = document.getElementById('ctx-tipo-info');
+  if (cfg) {
+    tipoDiv.className        = `alert alert-${cfg.cor} mb-3`;
+    tipoDiv.style.display    = '';
+    document.getElementById('ctx-tipo-icon').className  = `bi ${cfg.icone} me-2`;
+    document.getElementById('ctx-tipo-texto').innerHTML = cfg.texto;
+  } else {
+    tipoDiv.style.display = 'none';
+  }
+
+  // Prévia
+  const previewDiv = document.getElementById('ctx-preview');
+  if (cfg && qtd > 0) {
+    const novoEstoque = cfg.calc(_produto.estoque_atual, qtd);
+    const unidade     = _produto.unidade;
+
+    previewDiv.style.display = '';
+    document.getElementById('ctx-novo-estoque').textContent =
+      `${novoEstoque.toFixed(3).replace(/\.?0+$/, '')} ${unidade}`;
+
+    document.getElementById('ctx-aviso-negativo').classList.toggle(
+      'd-none', novoEstoque >= 0
+    );
+    document.getElementById('ctx-aviso-minimo').classList.toggle(
+      'd-none', novoEstoque >= _produto.estoque_minimo || novoEstoque < 0
+    );
+
+    // Cor do resultado
+    document.getElementById('ctx-novo-estoque').className =
+      'preview-estoque ' + (
+        novoEstoque < 0               ? 'text-danger'  :
+        novoEstoque < _produto.estoque_minimo ? 'text-warning' : 'text-success'
+      );
+  } else {
+    previewDiv.style.display = 'none';
+  }
+}
+
+/* ── Eventos ── */
+$(document).ready(function () {
+  /* Select de produto: exibe estoque no dropdown e destaca itens com estoque zero */
+  $('#id_produto').select2({
+    theme: 'bootstrap-5',
+    width: '100%',
+    language: { noResults: () => 'Nenhum resultado encontrado' },
+    templateResult: function (item) {
+      if (!item.id || !item.text) return item.text;
+      /* Detecta "— 0 <unidade>" no texto gerado pelo label_from_instance */
+      var semEstoque = /—\s*0\s+\w/.test(item.text);
+      var cor = semEstoque ? '#dc3545' : 'inherit';
+      return $('<span style="color:' + cor + '">' + item.text + '</span>');
+    },
+  });
+  /* Demais selects sem customização */
+  $('select:not(#id_produto)').select2({
+    theme: 'bootstrap-5',
+    width: '100%',
+    language: { noResults: () => 'Nenhum resultado encontrado' },
+  });
+
+  // Produto selecionado via Select2
+  $('#id_produto').on('select2:select', function (e) {
+    carregarProduto(e.params.data.id);
+  });
+
+  // Tipo ou quantidade mudaram
+  $('#id_tipo').on('change', atualizarPainel);
+  $('#id_quantidade').on('input', atualizarPainel);
+
+  // Se já há produto pré-selecionado (ex.: vindo de alertas)
+  const produtoInicial = document.getElementById('id_produto')?.value;
+  if (produtoInicial) carregarProduto(produtoInicial);
+});
+</script>
 {% endblock %}

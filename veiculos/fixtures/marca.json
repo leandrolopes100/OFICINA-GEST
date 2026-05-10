@@ -1,0 +1,142 @@
+[
+  {
+    "model": "veiculos.marca",
+    "pk": 1,
+    "fields": {
+      "nome": "Audi"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 2,
+    "fields": {
+      "nome": "BMW"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 3,
+    "fields": {
+      "nome": "BYD"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 4,
+    "fields": {
+      "nome": "Chevrolet"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 5,
+    "fields": {
+      "nome": "Citroën"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 6,
+    "fields": {
+      "nome": "Fiat"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 7,
+    "fields": {
+      "nome": "Ford"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 8,
+    "fields": {
+      "nome": "GWM"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 9,
+    "fields": {
+      "nome": "Honda"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 10,
+    "fields": {
+      "nome": "Hyundai"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 11,
+    "fields": {
+      "nome": "Jeep"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 12,
+    "fields": {
+      "nome": "Kia"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 13,
+    "fields": {
+      "nome": "Mercedes-Benz"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 14,
+    "fields": {
+      "nome": "Mitsubishi"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 15,
+    "fields": {
+      "nome": "Nissan"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 16,
+    "fields": {
+      "nome": "Peugeot"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 17,
+    "fields": {
+      "nome": "Renault"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 18,
+    "fields": {
+      "nome": "Toyota"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 19,
+    "fields": {
+      "nome": "Volkswagen"
+    }
+  },
+  {
+    "model": "veiculos.marca",
+    "pk": 20,
+    "fields": {
+      "nome": "Volvo"
+    }
+  }
+]

@@ -1,59 +1,165 @@
 {% extends 'base.html' %}
 {% load oficina_tags %}
 {% block title %}Orçamentos{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+<style>
+  .select2-container { width: 100% !important; }
+  .row-aguardando-os { background-color: #fffbea !important; border-left: 3px solid #ffc107; }
+  .row-aguardando-os:hover { background-color: #fff3cd !important; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0 fw-bold"><i class="bi bi-file-earmark-text-fill text-primary"></i> Orçamentos</h4>
   <a href="{% url 'orcamentos:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle"></i> Novo Orçamento</a>
 </div>
+
+{% if pendentes_os > 0 %}
+<div class="alert alert-warning d-flex align-items-center justify-content-between py-2 mb-3" role="alert">
+  <div>
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <strong>{{ pendentes_os }} orçamento{{ pendentes_os|pluralize }} aprovado{{ pendentes_os|pluralize }}</strong>
+    aguardando geração de Ordem de Serviço.
+  </div>
+  {% if aguardando_os == '1' %}
+    <a href="{% url 'orcamentos:list' %}" class="btn btn-sm btn-outline-warning">
+      <i class="bi bi-x-lg"></i> Ver todos
+    </a>
+  {% else %}
+    <a href="{% url 'orcamentos:list' %}?aguardando_os=1" class="btn btn-sm btn-warning">
+      <i class="bi bi-funnel-fill"></i> Ver pendentes
+    </a>
+  {% endif %}
+</div>
+{% endif %}
+
 <div class="card">
   <div class="card-body">
     <form method="get" class="row g-2 mb-3">
-      <div class="col-md-4"><input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por cliente..."></div>
+      <div class="col-md-4">
+        <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por cliente...">
+      </div>
       <div class="col-md-3">
         <select name="status" class="form-select">
           <option value="">Todos os status</option>
-          {% for val, label in status_choices %}<option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          {% for val, label in status_choices %}
+            <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
         </select>
       </div>
-      <div class="col-auto">
+      <div class="col-auto d-flex gap-2">
         <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i> Filtrar</button>
         <a href="{% url 'orcamentos:list' %}" class="btn btn-outline-secondary">Limpar</a>
+        <a href="{% url 'orcamentos:list' %}?aguardando_os=1"
+           class="btn {% if aguardando_os == '1' %}btn-warning{% else %}btn-outline-warning{% endif %}"
+           title="Mostrar apenas aprovados sem OS">
+          <i class="bi bi-lightning-charge-fill"></i> Aguardando OS
+          {% if pendentes_os > 0 %}<span class="badge bg-dark ms-1">{{ pendentes_os }}</span>{% endif %}
+        </a>
       </div>
     </form>
+
     <div class="table-responsive">
       <table class="table table-hover">
         <thead class="table-light">
-          <tr><th>Número</th><th>Cliente</th><th>Veículo</th><th>Status</th><th>Validade</th><th>Total</th><th>Ações</th></tr>
+          <tr>
+            <th>Número</th><th>Cliente</th><th>Veículo</th><th>Status</th><th>Validade</th><th>Total</th><th>Ações</th>
+          </tr>
         </thead>
         <tbody>
           {% for orc in orcamentos %}
-          <tr>
-            <td><a href="{% url 'orcamentos:detail' orc.pk %}" class="fw-bold text-decoration-none">ORC-{{ orc.numero }}</a></td>
+          <tr {% if orc.status == 'aprovado' and not orc.tem_os %}class="row-aguardando-os"{% endif %}>
+            <td>
+              <a href="{% url 'orcamentos:detail' orc.pk %}" class="fw-bold text-decoration-none">ORC-{{ orc.numero }}</a>
+            </td>
             <td>{{ orc.cliente.nome }}</td>
             <td>{{ orc.veiculo.placa }}</td>
-            <td><span class="badge bg-{{ orc.status|status_badge }}">{{ orc.get_status_display }}</span></td>
+            <td>
+              <span class="badge bg-{{ orc.status|status_badge }}">{{ orc.get_status_display }}</span>
+              {% if orc.status == 'aprovado' and not orc.tem_os %}
+                <span class="badge bg-warning text-dark ms-1" title="Aprovado sem Ordem de Serviço gerada">
+                  <i class="bi bi-exclamation-triangle-fill"></i> Gerar OS
+                </span>
+              {% endif %}
+            </td>
             <td>{{ orc.data_validade|date:"d/m/Y" }}</td>
             <td>{{ orc.total|currency }}</td>
             <td>
-              <a href="{% url 'orcamentos:detail' orc.pk %}" class="btn btn-sm btn-outline-info"><i class="bi bi-eye"></i></a>
-              {% if orc.pode_editar %}<a href="{% url 'orcamentos:update' orc.pk %}" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>{% endif %}
-              <a href="{% url 'orcamentos:pdf' orc.pk %}" class="btn btn-sm btn-outline-danger" target="_blank"><i class="bi bi-file-pdf"></i></a>
+              <div class="d-flex gap-1 flex-wrap">
+                <a href="{% url 'orcamentos:detail' orc.pk %}" class="btn btn-sm btn-outline-info" title="Visualizar">
+                  <i class="bi bi-eye"></i>
+                </a>
+                {% if orc.pode_editar %}
+                  <a href="{% url 'orcamentos:update' orc.pk %}" class="btn btn-sm btn-outline-warning" title="Editar">
+                    <i class="bi bi-pencil"></i>
+                  </a>
+                {% endif %}
+                <a href="{% url 'orcamentos:imprimir' orc.pk %}" class="btn btn-sm btn-outline-primary" target="_blank" title="Imprimir Orçamento">
+                  <i class="bi bi-printer"></i>
+                </a>
+                {% if orc.status == 'aprovado' and not orc.tem_os %}
+                  <form method="post" action="{% url 'orcamentos:gerar_os' orc.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-warning" title="Gerar Ordem de Serviço">
+                      <i class="bi bi-lightning-charge-fill"></i> OS
+                    </button>
+                  </form>
+                {% endif %}
+                {% if request.user.role == 'admin' %}
+                  <a href="{% url 'orcamentos:delete' orc.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
+                    <i class="bi bi-trash"></i>
+                  </a>
+                {% endif %}
+              </div>
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="7" class="text-center text-muted py-4">Nenhum orçamento encontrado.</td></tr>
+          <tr>
+            <td colspan="7" class="text-center text-muted py-4">
+              {% if aguardando_os == '1' %}
+                <i class="bi bi-check-circle text-success fs-4 d-block mb-1"></i>
+                Nenhum orçamento aprovado aguardando OS.
+              {% else %}
+                Nenhum orçamento encontrado.
+              {% endif %}
+            </td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+
     {% if is_paginated %}
     <nav><ul class="pagination pagination-sm justify-content-center">
-      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">«</a></li>{% endif %}
+      {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if aguardando_os %}&aguardando_os={{ aguardando_os }}{% endif %}">«</a>
+        </li>
+      {% endif %}
       <li class="page-item active"><a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a></li>
-      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">»</a></li>{% endif %}
+      {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if aguardando_os %}&aguardando_os={{ aguardando_os }}{% endif %}">»</a>
+        </li>
+      {% endif %}
     </ul></nav>
     {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function () {
+  $('select').select2({
+    theme: 'bootstrap-5', width: '100%', minimumResultsForSearch: Infinity,
+    language: { noResults: () => 'Nenhum resultado encontrado' },
+  });
+});
+</script>
 {% endblock %}

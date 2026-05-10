@@ -2,9 +2,27 @@ from django import forms
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Row, Column, Submit, Div, HTML
 from .models import Cliente
+from .validators import _validar_cpf, _validar_cnpj
+
+UF_CHOICES = [
+    ('', '— UF —'),
+    ('AC', 'AC'), ('AL', 'AL'), ('AP', 'AP'), ('AM', 'AM'),
+    ('BA', 'BA'), ('CE', 'CE'), ('DF', 'DF'), ('ES', 'ES'),
+    ('GO', 'GO'), ('MA', 'MA'), ('MT', 'MT'), ('MS', 'MS'),
+    ('MG', 'MG'), ('PA', 'PA'), ('PB', 'PB'), ('PR', 'PR'),
+    ('PE', 'PE'), ('PI', 'PI'), ('RJ', 'RJ'), ('RN', 'RN'),
+    ('RS', 'RS'), ('RO', 'RO'), ('RR', 'RR'), ('SC', 'SC'),
+    ('SP', 'SP'), ('SE', 'SE'), ('TO', 'TO'),
+]
 
 
 class ClienteForm(forms.ModelForm):
+    estado = forms.ChoiceField(
+        label='Estado',
+        choices=UF_CHOICES,
+        required=False,
+    )
+
     class Meta:
         model = Cliente
         fields = [
@@ -20,6 +38,9 @@ class ClienteForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['cep'].widget.attrs['data-mask'] = 'cep'
+        self.fields['telefone'].widget.attrs['data-mask'] = 'telefone'
+        self.fields['celular'].widget.attrs['data-mask'] = 'celular'
         self.helper = FormHelper()
         self.helper.layout = Layout(
             Row(
@@ -33,9 +54,9 @@ class ClienteForm(forms.ModelForm):
                 Column('email', css_class='col-md-6'),
             ),
             Row(
-                Column('telefone', css_class='col-md-4'),
-                Column('celular', css_class='col-md-4'),
-                Column('whatsapp', css_class='col-md-4'),
+                Column('telefone', css_class='col-md-5'),
+                Column('celular', css_class='col-md-5'),
+                Column('whatsapp', css_class='col-md-2 d-flex align-items-end pb-2'),
             ),
             HTML('<hr><h6 class="text-muted">Endereço</h6>'),
             Row(
@@ -54,5 +75,25 @@ class ClienteForm(forms.ModelForm):
                 Column('observacoes', css_class='col-md-9'),
                 Column('ativo', css_class='col-md-3'),
             ),
-            Submit('submit', 'Salvar Cliente', css_class='btn btn-primary'),
+            HTML("""
+                <div class="d-flex gap-2 mt-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> Salvar Cliente
+                    </button>
+                    <a href="{% url 'clientes:list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg"></i> Cancelar
+                    </a>
+                </div>
+            """),
         )
+
+    def clean_cpf_cnpj(self):
+        cpf_cnpj = self.cleaned_data.get('cpf_cnpj', '')
+        tipo = self.cleaned_data.get('tipo_pessoa') or self.data.get('tipo_pessoa', 'F')
+        if tipo == 'F':
+            if not _validar_cpf(cpf_cnpj):
+                raise forms.ValidationError('CPF inválido. Verifique os dígitos informados.')
+        else:
+            if not _validar_cnpj(cpf_cnpj):
+                raise forms.ValidationError('CNPJ inválido. Verifique os dígitos informados.')
+        return cpf_cnpj

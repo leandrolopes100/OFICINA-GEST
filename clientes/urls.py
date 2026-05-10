@@ -8,6 +8,6 @@ urlpatterns = [
     path('novo/', views.ClienteCreateView.as_view(), name='create'),
     path('<int:pk>/', views.ClienteDetailView.as_view(), name='detail'),
     path('<int:pk>/editar/', views.ClienteUpdateView.as_view(), name='update'),
-    path('<int:pk>/excluir/', views.ClienteDeleteView.as_view(), name='delete'),
+    path('<int:pk>/toggle-ativo/', views.cliente_toggle_ativo, name='toggle_ativo'),
     path('busca/', views.cliente_search_ajax, name='search_ajax'),
 ]

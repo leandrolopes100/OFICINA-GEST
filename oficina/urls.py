@@ -4,6 +4,10 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
 
+# Handlers de erro personalizados — Django usa os templates 404.html e 403.html
+handler404 = 'django.views.defaults.page_not_found'
+handler403 = 'django.views.defaults.permission_denied'
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls')),

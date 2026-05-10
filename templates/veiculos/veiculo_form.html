@@ -1,12 +1,94 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
 {% block title %}{% if object %}Editar{% else %}Novo{% endif %} Veículo{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+<style>
+  .select2-container { width: 100% !important; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0 fw-bold"><i class="bi bi-car-front-fill text-primary"></i> {% if object %}Editar Veículo{% else %}Novo Veículo{% endif %}</h4>
-  <a href="{% url 'veiculos:list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Voltar</a>
+  <h4 class="mb-0 fw-bold">
+    <i class="bi bi-car-front-fill text-primary"></i>
+    {% if object %}Editar Veículo{% else %}Novo Veículo{% endif %}
+  </h4>
+  <a href="{% url 'veiculos:list' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i> Voltar
+  </a>
 </div>
 <div class="card">
-  <div class="card-body">{% crispy form %}</div>
+  <div class="card-body">
+    {% crispy form %}
+  </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function () {
+
+  // Select2 no campo Cliente
+  $('#id_cliente').select2({
+    theme: 'bootstrap-5',
+    placeholder: 'Selecione o cliente...',
+    allowClear: true,
+    language: { noResults: () => 'Nenhum resultado encontrado' },
+  });
+
+  // Select2 no campo Marca com busca
+  $('#id_marca').select2({
+    theme: 'bootstrap-5',
+    placeholder: 'Selecione a marca...',
+    allowClear: true,
+    language: { noResults: () => 'Nenhuma marca encontrada' },
+  });
+
+  // Select2 no campo Modelo (inicialmente desabilitado se não houver marca)
+  $('#id_modelo').select2({
+    theme: 'bootstrap-5',
+    placeholder: 'Selecione primeiro a marca...',
+    allowClear: true,
+    language: { noResults: () => 'Nenhum modelo encontrado' },
+  });
+
+  // Ao trocar a marca, recarrega os modelos via AJAX
+  $('#id_marca').on('change', function () {
+    const marcaId = $(this).val();
+    const $modelo = $('#id_modelo');
+
+    $modelo.empty().append('<option value="">Carregando...</option>').trigger('change');
+
+    if (!marcaId) {
+      $modelo.empty().append('<option value="">Selecione primeiro a marca...</option>').trigger('change');
+      return;
+    }
+
+    $.getJSON(`/veiculos/ajax/modelos/${marcaId}/`, function (data) {
+      $modelo.empty().append('<option value="">Selecione o modelo...</option>');
+      $.each(data.results, function (i, item) {
+        $modelo.append(new Option(item.text, item.id));
+      });
+
+      // Se estiver editando, mantém o modelo atual selecionado
+      const modeloAtual = '{{ object.modelo_id|default:"" }}';
+      if (modeloAtual) {
+        $modelo.val(modeloAtual);
+      }
+      $modelo.trigger('change');
+    });
+  });
+
+  // Se estiver editando, dispara o change da marca para carregar modelos
+  const marcaAtual = $('#id_marca').val();
+  if (marcaAtual) {
+    $('#id_marca').trigger('change');
+  }
+
+});
+</script>
 {% endblock %}

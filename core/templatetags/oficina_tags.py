@@ -48,3 +48,19 @@ def status_badge(status):
 @register.simple_tag
 def get_status_display(obj, field='status'):
     return getattr(obj, f'get_{field}_display', lambda: '')()
+
+
+@register.filter
+def historico_badge(tipo):
+    badges = {
+        'criacao':   'success',
+        'edicao':    'secondary',
+        'status':    'primary',
+        'item_add':  'info',
+        'item_rem':  'warning',
+        'pagamento': 'success',
+        'entrega':   'primary',
+        'os_gerada': 'dark',
+        'outro':     'secondary',
+    }
+    return badges.get(tipo, 'secondary')

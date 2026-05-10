@@ -1,6 +1,54 @@
 {% extends 'base.html' %}
 {% load oficina_tags %}
 {% block title %}Fluxo de Caixa{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+<style>
+  .select2-container { width: auto !important; min-width: 130px; }
+  .kpi-card {
+    border: none !important;
+    border-radius: 14px !important;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,.08);
+    transition: box-shadow .2s ease, transform .2s ease;
+  }
+  .kpi-card:hover {
+    box-shadow: 0 6px 20px rgba(0,0,0,.13);
+    transform: translateY(-2px);
+  }
+  .kpi-icon-panel {
+    width: 84px;
+    min-width: 84px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.9rem;
+    color: #fff;
+    transition: filter .2s ease;
+  }
+  .kpi-card:hover .kpi-icon-panel {
+    filter: brightness(.88);
+  }
+  .kpi-body {
+    padding: .9rem 1rem;
+  }
+  .kpi-label {
+    font-size: .68rem;
+    color: #6c757d;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 2px;
+  }
+  .kpi-value {
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1.15;
+  }
+</style>
+{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0 fw-bold"><i class="bi bi-graph-up-arrow text-primary"></i> Fluxo de Caixa</h4>
@@ -45,27 +93,43 @@
 <!-- KPIs -->
 <div class="row g-3 mb-3">
   <div class="col-md-4">
-    <div class="card border-start border-success border-4">
-      <div class="card-body">
-        <div class="text-muted small">Total Receitas</div>
-        <div class="fs-4 fw-bold text-success">{{ receitas|currency }}</div>
+    <div class="card kpi-card h-100">
+      <div class="d-flex h-100">
+        <div class="kpi-icon-panel" style="background:linear-gradient(135deg,#198754,#157347)">
+          <i class="bi bi-arrow-down-circle-fill"></i>
+        </div>
+        <div class="kpi-body flex-grow-1">
+          <div class="kpi-label">Total Receitas</div>
+          <div class="kpi-value text-success">{{ receitas|currency }}</div>
+        </div>
       </div>
     </div>
   </div>
   <div class="col-md-4">
-    <div class="card border-start border-danger border-4">
-      <div class="card-body">
-        <div class="text-muted small">Total Despesas</div>
-        <div class="fs-4 fw-bold text-danger">{{ despesas|currency }}</div>
+    <div class="card kpi-card h-100">
+      <div class="d-flex h-100">
+        <div class="kpi-icon-panel" style="background:linear-gradient(135deg,#dc3545,#bb2d3b)">
+          <i class="bi bi-arrow-up-circle-fill"></i>
+        </div>
+        <div class="kpi-body flex-grow-1">
+          <div class="kpi-label">Total Despesas</div>
+          <div class="kpi-value text-danger">{{ despesas|currency }}</div>
+        </div>
       </div>
     </div>
   </div>
   <div class="col-md-4">
-    <div class="card border-start border-primary border-4">
-      <div class="card-body">
-        <div class="text-muted small">Saldo do Período</div>
-        <div class="fs-4 fw-bold {% if saldo >= 0 %}text-success{% else %}text-danger{% endif %}">
-          {{ saldo|currency }}
+    <div class="card kpi-card h-100">
+      <div class="d-flex h-100">
+        <div class="kpi-icon-panel"
+             style="background:{% if saldo >= 0 %}linear-gradient(135deg,#198754,#157347){% else %}linear-gradient(135deg,#dc3545,#bb2d3b){% endif %}">
+          <i class="bi bi-piggy-bank-fill"></i>
+        </div>
+        <div class="kpi-body flex-grow-1">
+          <div class="kpi-label">Saldo do Período</div>
+          <div class="kpi-value {% if saldo >= 0 %}text-success{% else %}text-danger{% endif %}">
+            {{ saldo|currency }}
+          </div>
         </div>
       </div>
     </div>
@@ -77,13 +141,24 @@
   <div class="table-responsive">
     <table class="table table-sm table-hover mb-0">
       <thead class="table-light">
-        <tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Status</th></tr>
+        <tr>
+          <th>Data</th><th>Descrição</th><th>Categoria</th>
+          <th>Tipo</th><th>Valor</th><th>Status</th><th>Ações</th>
+        </tr>
       </thead>
       <tbody>
         {% for l in lancamentos %}
         <tr {% if l.status == 'vencido' %}class="table-danger"{% endif %}>
           <td>{{ l.data_competencia|date:"d/m/Y" }}</td>
-          <td>{{ l.descricao }}</td>
+          <td>
+            {{ l.descricao }}
+            {% if l.ordem_servico %}
+            <a href="{% url 'ordens_servico:os_detalhe' l.ordem_servico.pk %}"
+               class="ms-1 text-muted small" title="Ver OS">
+              <i class="bi bi-clipboard2-check"></i>
+            </a>
+            {% endif %}
+          </td>
           <td><small class="text-muted">{{ l.get_categoria_display }}</small></td>
           <td>
             <span class="badge {% if l.tipo == 'receita' %}bg-success{% else %}bg-danger{% endif %}">
@@ -94,12 +169,37 @@
             {{ l.valor|currency }}
           </td>
           <td><span class="badge bg-{{ l.status|status_badge }}">{{ l.get_status_display }}</span></td>
+          <td>
+            {% if request.user.role == 'admin' %}
+            <a href="{% url 'financeiro:update' l.pk %}"
+               class="btn btn-sm btn-outline-warning" title="Editar">
+              <i class="bi bi-pencil"></i>
+            </a>
+            <a href="{% url 'financeiro:delete' l.pk %}"
+               class="btn btn-sm btn-outline-danger" title="Excluir">
+              <i class="bi bi-trash"></i>
+            </a>
+            {% endif %}
+          </td>
         </tr>
         {% empty %}
-        <tr><td colspan="6" class="text-center text-muted py-4">Nenhum lançamento neste período.</td></tr>
+        <tr><td colspan="7" class="text-center text-muted py-4">Nenhum lançamento neste período.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function () {
+  $('select').select2({
+    theme: 'bootstrap-5',
+    minimumResultsForSearch: Infinity,
+    language: { noResults: () => 'Nenhum resultado encontrado' },
+  });
+});
+</script>
 {% endblock %}

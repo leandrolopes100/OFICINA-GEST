@@ -1,5 +1,6 @@
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
+
 from clientes.models import Cliente
 from veiculos.models import Veiculo
 from orcamentos.models import Orcamento, TipoServico
@@ -15,6 +16,18 @@ class OrdemServico(models.Model):
         ('entregue', 'Entregue'),
         ('cancelada', 'Cancelada'),
     ]
+
+    # Transições válidas de status — estados terminais (entregue, cancelada)
+    # não permitem nenhuma mudança posterior.
+    TRANSICOES_VALIDAS = {
+        'aberta':       {'em_andamento', 'aguardando', 'cancelada'},
+        'em_andamento': {'aberta', 'aguardando', 'concluida', 'cancelada'},
+        'aguardando':   {'aberta', 'em_andamento', 'concluida', 'cancelada'},
+        'concluida':    {'entregue'},
+        'entregue':     set(),
+        'cancelada':    set(),
+    }
+
     numero = models.CharField('Número', max_length=20, unique=True, editable=False)
     orcamento = models.OneToOneField(
         Orcamento, on_delete=models.SET_NULL,
@@ -33,9 +46,9 @@ class OrdemServico(models.Model):
         'accounts.CustomUser', on_delete=models.SET_NULL,
         null=True, blank=True, related_name='ordens_criadas'
     )
-    status = models.CharField('Status', max_length=15, choices=STATUS_CHOICES, default='aberta')
+    status = models.CharField('Status', max_length=15, choices=STATUS_CHOICES, default='aberta', db_index=True)
     data_abertura = models.DateTimeField(auto_now_add=True)
-    data_previsao = models.DateField('Previsão de Conclusão', null=True, blank=True)
+    data_previsao = models.DateField('Previsão de Conclusão', null=True, blank=True, db_index=True)
     data_conclusao = models.DateTimeField('Data de Conclusão', null=True, blank=True)
     data_entrega = models.DateTimeField('Data de Entrega', null=True, blank=True)
     km_entrada = models.PositiveIntegerField('KM na Entrada', default=0)
@@ -53,21 +66,38 @@ class OrdemServico(models.Model):
         verbose_name = 'Ordem de Serviço'
         verbose_name_plural = 'Ordens de Serviço'
         ordering = ['-data_abertura']
+        indexes = [
+            models.Index(fields=['status', 'data_previsao'], name='os_status_previsao_idx'),
+            models.Index(fields=['cliente', 'status'], name='os_cliente_status_idx'),
+        ]
 
     def __str__(self):
         return f'OS-{self.numero}'
 
     def save(self, *args, **kwargs):
         if not self.numero:
-            ultimo = OrdemServico.objects.order_by('-id').first()
-            self.numero = str((ultimo.id if ultimo else 0) + 1).zfill(6)
-        super().save(*args, **kwargs)
+            # Envolve a leitura do último ID e o INSERT numa transação para
+            # evitar race condition na geração do número sequencial.
+            with transaction.atomic():
+                ultimo = OrdemServico.objects.order_by('-id').first()
+                self.numero = str((ultimo.id if ultimo else 0) + 1).zfill(6)
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
 
     def recalcular_totais(self):
-        self.subtotal_servicos = sum(i.total for i in self.itens_servico.all())
-        self.subtotal_pecas = sum(i.total for i in self.itens_peca.all())
-        self.total = self.subtotal_servicos + self.subtotal_pecas - self.desconto_valor
+        from decimal import Decimal
+        from django.db.models import Sum
+        subtotal_srv = self.itens_servico.aggregate(t=Sum('total'))['t'] or Decimal('0')
+        subtotal_pca = self.itens_peca.aggregate(t=Sum('total'))['t'] or Decimal('0')
+        self.subtotal_servicos = subtotal_srv
+        self.subtotal_pecas = subtotal_pca
+        self.total = subtotal_srv + subtotal_pca - self.desconto_valor
         self.save(update_fields=['subtotal_servicos', 'subtotal_pecas', 'total'])
+
+    def pode_mudar_para(self, novo_status: str) -> bool:
+        """Valida se a transição de status é permitida pela máquina de estados."""
+        return novo_status in self.TRANSICOES_VALIDAS.get(self.status, set())
 
     @property
     def pode_editar(self):

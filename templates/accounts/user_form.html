@@ -1,15 +1,29 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
 {% block title %}{% if object %}Editar{% else %}Novo{% endif %} Usuário{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+<style>.select2-container { width: 100% !important; }</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0 fw-bold">
     <i class="bi bi-person-gear text-primary"></i>
     {% if object %}Editar Usuário: {{ object.username }}{% else %}Novo Usuário{% endif %}
   </h4>
-  <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-secondary btn-sm">
-    <i class="bi bi-arrow-left"></i> Voltar
-  </a>
+  <div class="d-flex gap-2">
+    {% if object %}
+    <a href="{% url 'accounts:user_password_reset' object.pk %}" class="btn btn-outline-warning btn-sm">
+      <i class="bi bi-key-fill"></i> Redefinir Senha
+    </a>
+    {% endif %}
+    <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Voltar
+    </a>
+  </div>
 </div>
 <div class="row justify-content-center">
   <div class="col-md-8">
@@ -18,4 +32,17 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function () {
+  $('select').select2({
+    theme: 'bootstrap-5',
+    width: '100%',
+    language: { noResults: () => 'Nenhum resultado encontrado' },
+  });
+});
+</script>
 {% endblock %}

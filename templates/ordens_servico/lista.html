@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+{% load oficina_tags %}
+{% block title %}Ordens de Serviço{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+<style>
+  .select2-container { width: 100% !important; }
+  .row-sem-pagamento { background-color: #fff8f0 !important; border-left: 3px solid #fd7e14; }
+  .row-sem-pagamento:hover { background-color: #fdebd0 !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold">
+    <i class="bi bi-clipboard2-check-fill text-primary"></i> Ordens de Serviço
+  </h4>
+  <a href="{% url 'ordens_servico:os_criar' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle"></i> Nova OS
+  </a>
+</div>
+
+{% if total_atrasadas %}
+<div class="alert alert-danger d-flex align-items-center justify-content-between py-2 mb-2" role="alert">
+  <div>
+    <i class="bi bi-clock-fill me-2"></i>
+    <strong>{{ total_atrasadas }} OS atrasada{{ total_atrasadas|pluralize }}</strong>
+    com prazo vencido e ainda em aberto.
+  </div>
+  <a href="{% url 'ordens_servico:os_lista' %}?status=abertas" class="btn btn-sm btn-outline-danger">
+    Ver atrasadas
+  </a>
+</div>
+{% endif %}
+
+{% if pendentes_pagamento > 0 %}
+<div class="alert alert-warning d-flex align-items-center justify-content-between py-2 mb-3" role="alert">
+  <div>
+    <i class="bi bi-cash-coin me-2"></i>
+    <strong>{{ pendentes_pagamento }} OS</strong>
+    concluída{{ pendentes_pagamento|pluralize }}/entregue{{ pendentes_pagamento|pluralize }}
+    aguardando registro de pagamento.
+  </div>
+  {% if sem_pagamento_filtro == '1' %}
+    <a href="{% url 'ordens_servico:os_lista' %}" class="btn btn-sm btn-outline-warning">
+      <i class="bi bi-x-lg"></i> Ver todas
+    </a>
+  {% else %}
+    <a href="{% url 'ordens_servico:os_lista' %}?sem_pagamento=1" class="btn btn-sm btn-warning">
+      <i class="bi bi-funnel-fill"></i> Ver pendentes
+    </a>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-2 mb-3">
+      <div class="col-md-4">
+        <input type="text" name="q" value="{{ busca }}" class="form-control"
+               placeholder="Buscar por nº, cliente ou placa...">
+      </div>
+      <div class="col-md-3">
+        <select name="status" class="form-select">
+          <option value="">Todos os status</option>
+          <option value="abertas" {% if status_atual == 'abertas' %}selected{% endif %}>OS em Aberto (todas)</option>
+          {% for val, label in status_choices %}
+          <option value="{{ val }}" {% if status_atual == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto d-flex gap-2">
+        <button type="submit" class="btn btn-outline-primary">
+          <i class="bi bi-search"></i> Filtrar
+        </button>
+        <a href="{% url 'ordens_servico:os_lista' %}" class="btn btn-outline-secondary">Limpar</a>
+        <a href="{% url 'ordens_servico:os_lista' %}?sem_pagamento=1"
+           class="btn {% if sem_pagamento_filtro == '1' %}btn-warning{% else %}btn-outline-warning{% endif %}"
+           title="Mostrar OS concluídas/entregues sem pagamento">
+          <i class="bi bi-cash-coin"></i> Sem pagamento
+          {% if pendentes_pagamento > 0 %}
+            <span class="badge bg-dark ms-1">{{ pendentes_pagamento }}</span>
+          {% endif %}
+        </a>
+      </div>
+    </form>
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Número</th>
+            <th>Cliente</th>
+            <th>Veículo</th>
+            <th>Mecânico</th>
+            <th>Status</th>
+            <th>Abertura</th>
+            <th>Previsão</th>
+            <th>Total</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for os in ordens %}
+          {% if os.data_previsao and os.data_previsao < hoje and os.status in status_ativos %}
+          <tr class="table-danger">
+          {% elif not os.tem_pagamento and os.status in statuses_requer_pagamento %}
+          <tr class="row-sem-pagamento">
+          {% else %}
+          <tr>
+          {% endif %}
+            <td>
+              <a href="{% url 'ordens_servico:os_detalhe' os.pk %}"
+                 class="fw-bold text-decoration-none{% if os.data_previsao and os.data_previsao < hoje and os.status in status_ativos %} text-danger{% endif %}">
+                {{ os }}
+              </a>
+            </td>
+            <td>{{ os.cliente.nome }}</td>
+            <td>{{ os.veiculo.placa }}</td>
+            <td>{{ os.mecanico|default:"—" }}</td>
+            <td>
+              <span class="badge bg-{{ os.status|status_badge }}">{{ os.get_status_display }}</span>
+              {% if not os.tem_pagamento and os.status in statuses_requer_pagamento %}
+              <span class="badge bg-warning text-dark ms-1"
+                    title="OS finalizada sem pagamento registrado">
+                <i class="bi bi-cash-coin"></i> Receber
+              </span>
+              {% endif %}
+            </td>
+            <td>{{ os.data_abertura|date:"d/m/Y" }}</td>
+            <td>
+              {{ os.data_previsao|date:"d/m/Y"|default:"—" }}
+              {% if os.data_previsao and os.data_previsao < hoje and os.status in status_ativos %}
+              <br><span class="badge bg-danger mt-1">
+                <i class="bi bi-clock-fill"></i> ATRASADO
+              </span>
+              {% endif %}
+            </td>
+            <td>{{ os.total|currency }}</td>
+            <td>
+              <a href="{% url 'ordens_servico:os_detalhe' os.pk %}" class="btn btn-sm btn-outline-info">
+                <i class="bi bi-eye"></i>
+              </a>
+              <a href="{% url 'ordens_servico:os_imprimir' os.pk %}" class="btn btn-sm btn-outline-primary" target="_blank" title="Imprimir OS">
+                <i class="bi bi-printer"></i>
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="9" class="text-center text-muted py-4">
+              {% if sem_pagamento_filtro == '1' %}
+                <i class="bi bi-check-circle text-success fs-4 d-block mb-1"></i>
+                Todas as OS concluídas/entregues estão com pagamento registrado.
+              {% else %}
+                Nenhuma ordem de serviço encontrada.
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if is_paginated %}
+    <nav>
+      <ul class="pagination pagination-sm justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if busca %}&q={{ busca }}{% endif %}{% if status_atual %}&status={{ status_atual }}{% endif %}{% if sem_pagamento_filtro %}&sem_pagamento={{ sem_pagamento_filtro }}{% endif %}">«</a>
+        </li>
+        {% endif %}
+        <li class="page-item active">
+          <a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a>
+        </li>
+        {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if busca %}&q={{ busca }}{% endif %}{% if status_atual %}&status={{ status_atual }}{% endif %}{% if sem_pagamento_filtro %}&sem_pagamento={{ sem_pagamento_filtro }}{% endif %}">»</a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function () {
+  $('select').select2({
+    theme: 'bootstrap-5',
+    width: '100%',
+    minimumResultsForSearch: Infinity,
+    language: { noResults: () => 'Nenhum resultado encontrado' },
+  });
+});
+</script>
+{% endblock %}

@@ -2,73 +2,212 @@
 {% load oficina_tags %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
+<style>
+  .kpi-card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    transition: transform .2s ease;
+  }
+  .kpi-card:hover {
+    transform: translateY(-4px);
+    color: inherit;
+  }
+  .kpi-card .card {
+    border: none;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,.08);
+    transition: box-shadow .2s ease;
+  }
+  .kpi-card:hover .card {
+    box-shadow: 0 8px 28px rgba(0,0,0,.15);
+  }
+  .kpi-icon-panel {
+    width: 84px;
+    min-width: 84px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.9rem;
+    color: #fff;
+    transition: filter .2s ease;
+  }
+  .kpi-card:hover .kpi-icon-panel {
+    filter: brightness(.88);
+  }
+  .kpi-body {
+    padding: .95rem 1.1rem;
+  }
+  .kpi-label {
+    font-size: .68rem;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    color: #6c757d;
+    margin-bottom: 2px;
+  }
+  .kpi-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .kpi-link {
+    font-size: .75rem;
+    margin-top: 6px;
+    opacity: .65;
+    transition: opacity .2s;
+  }
+  .kpi-card:hover .kpi-link {
+    opacity: 1;
+  }
+</style>
+
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h4 class="mb-0 fw-bold"><i class="bi bi-speedometer2 text-primary"></i> Dashboard</h4>
-  <small class="text-muted">Atualizado agora</small>
+  <small class="text-muted">{{ hoje|date:"d/m/Y" }}</small>
 </div>
 
 <!-- KPI Cards -->
 <div class="row g-3 mb-4">
+
   <div class="col-md-3">
-    <div class="card border-start border-primary border-4">
-      <div class="card-body">
-        <div class="d-flex justify-content-between">
-          <div>
-            <div class="text-muted small">Clientes Ativos</div>
-            <div class="fs-3 fw-bold text-primary">{{ total_clientes }}</div>
+    <a href="/clientes/" class="kpi-card">
+      <div class="card h-100">
+        <div class="d-flex h-100">
+          <div class="kpi-icon-panel" style="background:linear-gradient(135deg,#0d6efd,#0b5ed7)">
+            <i class="bi bi-people-fill"></i>
           </div>
-          <i class="bi bi-people-fill fs-1 text-primary opacity-25"></i>
+          <div class="kpi-body flex-grow-1">
+            <div class="kpi-label">Clientes Ativos</div>
+            <div class="kpi-value text-primary">{{ total_clientes }}</div>
+            <div class="kpi-link text-primary">Ver clientes <i class="bi bi-arrow-right"></i></div>
+          </div>
         </div>
       </div>
-    </div>
+    </a>
   </div>
+
   <div class="col-md-3">
-    <div class="card border-start border-warning border-4">
-      <div class="card-body">
-        <div class="d-flex justify-content-between">
-          <div>
-            <div class="text-muted small">OS em Aberto</div>
-            <div class="fs-3 fw-bold text-warning">{{ os_abertas }}</div>
+    <a href="/ordens-servico/?status=abertas" class="kpi-card">
+      <div class="card h-100">
+        <div class="d-flex h-100">
+          <div class="kpi-icon-panel" style="background:linear-gradient(135deg,#fd7e14,#e8690d)">
+            <i class="bi bi-clipboard2-check-fill"></i>
           </div>
-          <i class="bi bi-clipboard2-check-fill fs-1 text-warning opacity-25"></i>
-        </div>
-        <a href="/ordens-servico/?status=aberta" class="small text-decoration-none">Ver todas →</a>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-3">
-    <div class="card border-start border-info border-4">
-      <div class="card-body">
-        <div class="d-flex justify-content-between">
-          <div>
-            <div class="text-muted small">Orçamentos Pendentes</div>
-            <div class="fs-3 fw-bold text-info">{{ orcamentos_pendentes }}</div>
+          <div class="kpi-body flex-grow-1">
+            <div class="kpi-label">OS em Aberto</div>
+            <div class="kpi-value" style="color:#fd7e14">{{ os_abertas }}</div>
+            <div class="kpi-link" style="color:#fd7e14">Ver ordens <i class="bi bi-arrow-right"></i></div>
           </div>
-          <i class="bi bi-file-earmark-text-fill fs-1 text-info opacity-25"></i>
         </div>
       </div>
-    </div>
+    </a>
   </div>
+
   <div class="col-md-3">
-    <div class="card border-start border-success border-4">
-      <div class="card-body">
-        <div class="d-flex justify-content-between">
-          <div>
-            <div class="text-muted small">Faturamento do Mês</div>
-            <div class="fs-5 fw-bold text-success">{{ faturamento_mes|currency }}</div>
+    <a href="/orcamentos/?status=" class="kpi-card">
+      <div class="card h-100">
+        <div class="d-flex h-100">
+          <div class="kpi-icon-panel" style="background:linear-gradient(135deg,#6610f2,#520dc2)">
+            <i class="bi bi-file-earmark-text-fill"></i>
           </div>
-          <i class="bi bi-cash-stack fs-1 text-success opacity-25"></i>
+          <div class="kpi-body flex-grow-1">
+            <div class="kpi-label">Orçamentos Pendentes</div>
+            <div class="kpi-value" style="color:#6610f2">{{ orcamentos_pendentes }}</div>
+            <div class="kpi-link" style="color:#6610f2">Ver orçamentos <i class="bi bi-arrow-right"></i></div>
+          </div>
         </div>
       </div>
-    </div>
+    </a>
   </div>
+
+  <div class="col-md-3">
+    <a href="/relatorios/faturamento/" class="kpi-card">
+      <div class="card h-100">
+        <div class="d-flex h-100">
+          <div class="kpi-icon-panel" style="background:linear-gradient(135deg,#198754,#157347)">
+            <i class="bi bi-cash-stack"></i>
+          </div>
+          <div class="kpi-body flex-grow-1">
+            <div class="kpi-label">Faturamento do Mês</div>
+            <div class="kpi-value text-success" style="font-size:1.45rem">{{ faturamento_mes|currency }}</div>
+            <div class="kpi-link text-success">Ver relatório <i class="bi bi-arrow-right"></i></div>
+          </div>
+        </div>
+      </div>
+    </a>
+  </div>
+
 </div>
 
 {% if alertas_estoque > 0 %}
-<div class="alert alert-warning d-flex align-items-center">
+<div class="alert alert-warning d-flex align-items-center mb-3">
   <i class="bi bi-exclamation-triangle-fill me-2"></i>
   <span><strong>{{ alertas_estoque }} produto(s)</strong> com estoque abaixo do mínimo.
   <a href="/estoque/alertas/" class="alert-link">Ver alertas</a></span>
+</div>
+{% endif %}
+
+{% if orcamentos_expirando %}
+<div class="card mb-4 border-warning border-2">
+  <div class="card-header d-flex justify-content-between align-items-center bg-warning bg-opacity-10">
+    <span class="fw-semibold">
+      <i class="bi bi-hourglass-split text-warning me-1"></i>
+      Orçamentos a Vencer — próximos 7 dias
+    </span>
+    <span class="badge bg-warning text-dark">{{ orcamentos_expirando|length }}</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Orçamento</th>
+            <th>Cliente</th>
+            <th>Veículo</th>
+            <th>Válido até</th>
+            <th>Prazo</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in orcamentos_expirando %}
+          <tr {% if item.dias_restantes <= 2 %}class="table-danger"{% elif item.dias_restantes <= 5 %}class="table-warning"{% endif %}>
+            <td class="fw-semibold">ORC-{{ item.orc.numero }}</td>
+            <td>{{ item.orc.cliente.nome|truncatechars:25 }}</td>
+            <td>{{ item.orc.veiculo.placa }}</td>
+            <td>{{ item.orc.data_validade|date:"d/m/Y" }}</td>
+            <td>
+              {% if item.dias_restantes == 0 %}
+                <span class="badge bg-danger">Vence hoje</span>
+              {% elif item.dias_restantes == 1 %}
+                <span class="badge bg-danger">Amanhã</span>
+              {% elif item.dias_restantes <= 2 %}
+                <span class="badge bg-danger">{{ item.dias_restantes }} dias</span>
+              {% elif item.dias_restantes <= 5 %}
+                <span class="badge bg-warning text-dark">{{ item.dias_restantes }} dias</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ item.dias_restantes }} dias</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge bg-{{ item.orc.status|status_badge }}">
+                {{ item.orc.get_status_display }}
+              </span>
+            </td>
+            <td>
+              <a href="/orcamentos/{{ item.orc.pk }}/"
+                 class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-eye"></i> Ver
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 {% endif %}
 

@@ -1,5 +1,10 @@
-from django.db import models
+from decimal import Decimal, ROUND_HALF_UP
+
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import models, transaction
+from django.db.models import Sum
 from django.utils import timezone
+
 from clientes.models import Cliente
 from veiculos.models import Veiculo
 from estoque.models import Produto
@@ -61,17 +66,31 @@ class Orcamento(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.numero:
-            ultimo = Orcamento.objects.order_by('-id').first()
-            self.numero = str((ultimo.id if ultimo else 0) + 1).zfill(6)
-        super().save(*args, **kwargs)
+            # Envolve a leitura do último ID e o INSERT numa transação para
+            # evitar race condition na geração do número sequencial.
+            with transaction.atomic():
+                ultimo = Orcamento.objects.order_by('-id').first()
+                self.numero = str((ultimo.id if ultimo else 0) + 1).zfill(6)
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
 
     def recalcular_totais(self):
-        self.subtotal_servicos = sum(i.total for i in self.itens_servico.all())
-        self.subtotal_pecas = sum(i.total for i in self.itens_peca.all())
-        base = self.subtotal_servicos + self.subtotal_pecas
+        # Usa agregação SQL para evitar N queries em listas grandes de itens
+        subtotal_srv = self.itens_servico.aggregate(t=Sum('total'))['t'] or Decimal('0')
+        subtotal_pca = self.itens_peca.aggregate(t=Sum('total'))['t'] or Decimal('0')
+        self.subtotal_servicos = subtotal_srv
+        self.subtotal_pecas = subtotal_pca
+        base = subtotal_srv + subtotal_pca
+
         if self.desconto_percentual:
-            self.desconto_valor = round(base * (self.desconto_percentual / 100), 2)
-        self.total = base - self.desconto_valor + self.taxa_valor
+            # Percentual tem prioridade; recalcula o valor monetário
+            self.desconto_valor = (
+                base * self.desconto_percentual / Decimal('100')
+            ).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        # Garante que o total nunca fique negativo
+        self.total = max(Decimal('0'), base - self.desconto_valor + self.taxa_valor)
         self.save(update_fields=['subtotal_servicos', 'subtotal_pecas', 'desconto_valor', 'total'])
 
     @property
@@ -84,7 +103,15 @@ class Orcamento(models.Model):
 
     @property
     def pode_gerar_os(self):
-        return self.status == 'aprovado' and not hasattr(self, 'ordem_servico')
+        if self.status != 'aprovado':
+            return False
+        # Usa acesso direto ao descritor para aproveitar cache de prefetch
+        # quando disponível, evitando query extra em listagens.
+        try:
+            _ = self.ordem_servico
+            return False
+        except ObjectDoesNotExist:
+            return True
 
 
 class ItemOrcamentoServico(models.Model):

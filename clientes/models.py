@@ -1,4 +1,5 @@
 from django.db import models
+from .validators import validar_cpf_cnpj
 
 
 class Cliente(models.Model):
@@ -7,8 +8,8 @@ class Cliente(models.Model):
         ('J', 'Pessoa Jurídica'),
     ]
     tipo_pessoa = models.CharField('Tipo', max_length=1, choices=TIPO_PESSOA, default='F')
-    nome = models.CharField('Nome / Razão Social', max_length=200)
-    cpf_cnpj = models.CharField('CPF / CNPJ', max_length=18, unique=True)
+    nome = models.CharField('Nome / Razão Social', max_length=200, db_index=True)
+    cpf_cnpj = models.CharField('CPF / CNPJ', max_length=18, unique=True, validators=[validar_cpf_cnpj])
     rg_ie = models.CharField('RG / Insc. Estadual', max_length=30, blank=True)
     data_nascimento = models.DateField('Data de Nascimento', null=True, blank=True)
     email = models.EmailField(blank=True)
@@ -23,7 +24,7 @@ class Cliente(models.Model):
     cidade = models.CharField('Cidade', max_length=100, blank=True)
     estado = models.CharField('Estado', max_length=2, blank=True)
     observacoes = models.TextField('Observações', blank=True)
-    ativo = models.BooleanField('Ativo', default=True)
+    ativo = models.BooleanField('Ativo', default=True, db_index=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -31,6 +32,9 @@ class Cliente(models.Model):
         verbose_name = 'Cliente'
         verbose_name_plural = 'Clientes'
         ordering = ['nome']
+        indexes = [
+            models.Index(fields=['ativo', 'nome'], name='cliente_ativo_nome_idx'),
+        ]
 
     def __str__(self):
         return self.nome

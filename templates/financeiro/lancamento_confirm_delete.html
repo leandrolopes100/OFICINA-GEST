@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% load oficina_tags %}
+{% block title %}Excluir Lançamento{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="mb-0 fw-bold">
+        <i class="bi bi-trash text-danger"></i> Excluir Lançamento
+      </h4>
+      <a href="{% url 'financeiro:list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Voltar
+      </a>
+    </div>
+
+    {# ── Dados do lançamento ── #}
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Lançamento</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-4">Descrição</dt>
+          <dd class="col-8 fw-bold">{{ lancamento.descricao }}</dd>
+          <dt class="col-4">Tipo</dt>
+          <dd class="col-8">
+            <span class="badge {% if lancamento.tipo == 'receita' %}bg-success{% else %}bg-danger{% endif %}">
+              {{ lancamento.get_tipo_display }}
+            </span>
+          </dd>
+          <dt class="col-4">Categoria</dt>
+          <dd class="col-8">{{ lancamento.get_categoria_display }}</dd>
+          <dt class="col-4">Valor</dt>
+          <dd class="col-8 fw-bold {% if lancamento.tipo == 'receita' %}text-success{% else %}text-danger{% endif %}">
+            {{ lancamento.valor|currency }}
+          </dd>
+          <dt class="col-4">Competência</dt>
+          <dd class="col-8">{{ lancamento.data_competencia|date:"d/m/Y" }}</dd>
+          <dt class="col-4">Status</dt>
+          <dd class="col-8">
+            <span class="badge bg-{{ lancamento.status|status_badge }}">
+              {{ lancamento.get_status_display }}
+            </span>
+          </dd>
+          {% if lancamento.forma_pagamento %}
+          <dt class="col-4">Forma Pgto.</dt>
+          <dd class="col-8">{{ lancamento.forma_pagamento }}</dd>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+
+    {# ── Aviso se vinculado a OS ── #}
+    {% if lancamento.ordem_servico %}
+    <div class="alert alert-warning d-flex gap-2">
+      <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        <strong>Atenção: este lançamento está vinculado à
+          <a href="{% url 'ordens_servico:os_detalhe' lancamento.ordem_servico.pk %}" target="_blank">
+            OS-{{ lancamento.ordem_servico.numero }}
+          </a>.
+        </strong><br>
+        Ao excluí-lo, o registro de pagamento dessa Ordem de Serviço será removido
+        e ela voltará a aparecer como não paga.
+      </div>
+    </div>
+    {% endif %}
+
+    {# ── Aviso genérico ── #}
+    <div class="alert alert-danger d-flex gap-2">
+      <i class="bi bi-x-octagon-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        Esta ação <strong>não pode ser desfeita</strong>.
+        O lançamento será removido permanentemente do sistema.
+      </div>
+    </div>
+
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-danger"
+              data-bs-toggle="modal" data-bs-target="#modalConfirmarExclusao">
+        <i class="bi bi-trash"></i> Excluir permanentemente
+      </button>
+      <a href="{% url 'financeiro:list' %}" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+
+  </div>
+</div>
+
+{# ══ Modal de confirmação ══ #}
+<div class="modal fade" id="modalConfirmarExclusao" tabindex="-1"
+     aria-labelledby="modalExclusaoTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="modalExclusaoTitulo">
+          <i class="bi bi-trash me-2"></i> Confirmar Exclusão Permanente
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="mb-3">Você está prestes a excluir permanentemente:</p>
+
+        <div class="rounded border px-3 py-2 bg-light mb-3 small">
+          <div class="fw-bold fs-6">{{ lancamento.descricao }}</div>
+          <div class="text-muted">
+            {{ lancamento.get_tipo_display }} &nbsp;·&nbsp;
+            {{ lancamento.get_categoria_display }} &nbsp;·&nbsp;
+            <span class="{% if lancamento.tipo == 'receita' %}text-success{% else %}text-danger{% endif %} fw-semibold">
+              {{ lancamento.valor|currency }}
+            </span>
+            &nbsp;·&nbsp; {{ lancamento.data_competencia|date:"d/m/Y" }}
+          </div>
+        </div>
+
+        {% if lancamento.ordem_servico %}
+        <div class="alert alert-warning py-2 small mb-3">
+          <i class="bi bi-exclamation-triangle-fill me-1"></i>
+          A <strong>OS-{{ lancamento.ordem_servico.numero }}</strong> voltará a aparecer
+          como <strong>não paga</strong> após a exclusão.
+        </div>
+        {% endif %}
+
+        <p class="text-danger fw-semibold mb-0">
+          <i class="bi bi-exclamation-circle me-1"></i>
+          Esta ação não pode ser desfeita.
+        </p>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg me-1"></i> Cancelar
+        </button>
+        <form method="post" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash me-1"></i> Excluir permanentemente
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% block title %}Excluir Produto — {{ produto.nome }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+
+    {# ── Cabeçalho ── #}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="mb-0 fw-bold">
+        <i class="bi bi-trash text-danger"></i> Remover Produto
+      </h4>
+      <a href="{% url 'estoque:list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Voltar
+      </a>
+    </div>
+
+    {# ── Card com dados do produto ── #}
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Produto</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-4">Código</dt>
+          <dd class="col-8">{{ produto.codigo }}</dd>
+          <dt class="col-4">Nome</dt>
+          <dd class="col-8 fw-bold">{{ produto.nome }}</dd>
+          <dt class="col-4">Categoria</dt>
+          <dd class="col-8">{{ produto.categoria|default:"—" }}</dd>
+          <dt class="col-4">Estoque atual</dt>
+          <dd class="col-8">{{ produto.estoque_atual }} {{ produto.get_unidade_display }}</dd>
+          <dt class="col-4">Preço de venda</dt>
+          <dd class="col-8">{{ produto.preco_venda }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    {% if tem_historico %}
+
+    <div class="alert alert-warning d-flex gap-2">
+      <i class="bi bi-shield-lock-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        <strong>Exclusão permanente não permitida.</strong><br>
+        Este produto está vinculado a registros do sistema e não pode ser deletado
+        sem comprometer o histórico financeiro e de serviços.
+      </div>
+    </div>
+
+    {# Contadores de uso #}
+    <div class="card mb-3">
+      <div class="card-header fw-semibold small">Registros vinculados</div>
+      <div class="card-body small">
+        <ul class="mb-0">
+          {% if n_movimentacoes %}
+          <li><i class="bi bi-arrow-left-right text-primary"></i>
+            <strong>{{ n_movimentacoes }}</strong> movimentação{{ n_movimentacoes|pluralize }} de estoque</li>
+          {% endif %}
+          {% if n_os %}
+          <li><i class="bi bi-clipboard2-check text-success"></i>
+            <strong>{{ n_os }}</strong> item{{ n_os|pluralize }} em ordens de serviço</li>
+          {% endif %}
+          {% if n_orcamentos %}
+          <li><i class="bi bi-file-earmark-text text-info"></i>
+            <strong>{{ n_orcamentos }}</strong> item{{ n_orcamentos|pluralize }} em orçamentos</li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+
+    <div class="alert alert-info d-flex gap-2">
+      <i class="bi bi-info-circle-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        <strong>Recomendação: Inativar o produto.</strong><br>
+        O produto deixará de aparecer em novas OS, orçamentos e na lista de estoque,
+        mas todo o histórico é preservado.
+      </div>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="inativar">
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-warning">
+          <i class="bi bi-eye-slash"></i> Inativar produto
+        </button>
+        <a href="{% url 'estoque:list' %}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </form>
+
+    {% else %}
+
+    <div class="alert alert-success d-flex gap-2">
+      <i class="bi bi-check-circle-fill fs-5 flex-shrink-0 mt-1"></i>
+      <div>
+        Este produto <strong>não possui histórico</strong> vinculado.
+        Você pode excluí-lo permanentemente ou apenas inativá-lo.
+      </div>
+    </div>
+
+    <div class="card border-danger mb-3">
+      <div class="card-header text-danger fw-semibold">
+        <i class="bi bi-trash"></i> Excluir permanentemente
+      </div>
+      <div class="card-body">
+        <p class="small text-danger mb-3">
+          <strong>Atenção:</strong> esta ação <strong>não pode ser desfeita</strong>.
+          O produto será removido definitivamente do banco de dados.
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="excluir">
+          <button type="submit" class="btn btn-danger"
+                  onclick="return confirm('Confirma a exclusão permanente de \'{{ produto.nome }}\'?')">
+            <i class="bi bi-trash"></i> Excluir permanentemente
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-eye-slash"></i> Apenas inativar
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-3">
+          O produto é ocultado das listas e seleções, mas permanece no banco
+          (útil se quiser reativá-lo no futuro via Editar).
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="inativar">
+          <button type="submit" class="btn btn-warning">
+            <i class="bi bi-eye-slash"></i> Inativar produto
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <a href="{% url 'estoque:list' %}" class="btn btn-outline-secondary">Cancelar</a>
+
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

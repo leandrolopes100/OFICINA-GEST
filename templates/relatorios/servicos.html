@@ -1,12 +1,82 @@
 {% extends 'base.html' %}
 {% block title %}Relatório de Serviços{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0 fw-bold"><i class="bi bi-tools text-primary"></i> Relatório de Serviços</h4>
+  <h4 class="mb-0 fw-bold">
+    <i class="bi bi-tools text-primary"></i> Relatório de Serviços
+    <small class="text-muted fw-normal fs-6 ms-2">
+      {% if periodo == 'todo' %}
+        Todo o histórico
+      {% elif periodo == 'ano' %}
+        {{ ano }}
+      {% else %}
+        {{ nome_mes }}/{{ ano }}
+      {% endif %}
+    </small>
+  </h4>
+</div>
+
+{# ── Seletor de período ── #}
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+
+      {# Botões de granularidade #}
+      <div class="btn-group btn-group-sm" role="group">
+        <a href="?periodo=mes&mes={{ mes }}&ano={{ ano }}"
+           class="btn {% if periodo == 'mes' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+          <i class="bi bi-calendar-month"></i> Mês
+        </a>
+        <a href="?periodo=ano&ano={{ ano }}"
+           class="btn {% if periodo == 'ano' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+          <i class="bi bi-calendar3"></i> Ano
+        </a>
+        <a href="?periodo=todo"
+           class="btn {% if periodo == 'todo' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+          <i class="bi bi-infinity"></i> Todo o histórico
+        </a>
+      </div>
+
+      {# Navegação por mês #}
+      {% if periodo == 'mes' %}
+      <div class="d-flex align-items-center gap-2">
+        <a href="?periodo=mes&mes={{ prev_mes }}&ano={{ prev_ano }}"
+           class="btn btn-sm btn-outline-secondary" title="Mês anterior">
+          <i class="bi bi-chevron-left"></i>
+        </a>
+        <span class="fw-semibold" style="min-width:120px;text-align:center">
+          {{ nome_mes }} / {{ ano }}
+        </span>
+        <a href="?periodo=mes&mes={{ next_mes }}&ano={{ next_ano }}"
+           class="btn btn-sm btn-outline-secondary" title="Próximo mês">
+          <i class="bi bi-chevron-right"></i>
+        </a>
+      </div>
+      {% endif %}
+
+      {# Navegação por ano #}
+      {% if periodo == 'ano' %}
+      <div class="d-flex align-items-center gap-2">
+        <a href="?periodo=ano&ano={{ ano|add:'-1' }}"
+           class="btn btn-sm btn-outline-secondary" title="Ano anterior">
+          <i class="bi bi-chevron-left"></i>
+        </a>
+        <span class="fw-semibold" style="min-width:60px;text-align:center">{{ ano }}</span>
+        <a href="?periodo=ano&ano={{ ano|add:'1' }}"
+           class="btn btn-sm btn-outline-secondary" title="Próximo ano">
+          <i class="bi bi-chevron-right"></i>
+        </a>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
 </div>
 
 <div class="row g-3">
-  <!-- Serviços mais realizados -->
+
+  {# ── Serviços mais realizados ── #}
   <div class="col-md-6">
     <div class="card h-100">
       <div class="card-header fw-semibold">
@@ -31,7 +101,13 @@
               </td>
             </tr>
             {% empty %}
-            <tr><td colspan="3" class="text-center text-muted py-4">Nenhum serviço registrado.</td></tr>
+            <tr>
+              <td colspan="3" class="text-center text-muted py-4">
+                <i class="bi bi-inbox d-block fs-4 mb-1"></i>
+                Nenhum serviço registrado
+                {% if periodo != 'todo' %}no período selecionado{% endif %}.
+              </td>
+            </tr>
             {% endfor %}
           </tbody>
         </table>
@@ -39,7 +115,7 @@
     </div>
   </div>
 
-  <!-- Clientes mais frequentes -->
+  {# ── Clientes mais frequentes ── #}
   <div class="col-md-6">
     <div class="card h-100">
       <div class="card-header fw-semibold">
@@ -68,12 +144,19 @@
               </td>
             </tr>
             {% empty %}
-            <tr><td colspan="3" class="text-center text-muted py-4">Nenhum dado disponível.</td></tr>
+            <tr>
+              <td colspan="3" class="text-center text-muted py-4">
+                <i class="bi bi-inbox d-block fs-4 mb-1"></i>
+                Nenhum dado disponível
+                {% if periodo != 'todo' %}no período selecionado{% endif %}.
+              </td>
+            </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
     </div>
   </div>
+
 </div>
 {% endblock %}

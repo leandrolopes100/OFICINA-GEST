@@ -1,53 +1,203 @@
 {% extends 'base.html' %}
 {% block title %}Veículos{% endblock %}
 {% block content %}
+
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0 fw-bold"><i class="bi bi-car-front-fill text-primary"></i> Veículos</h4>
-  <a href="{% url 'veiculos:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle"></i> Novo Veículo</a>
+  <a href="{% url 'veiculos:create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle"></i> Novo Veículo
+  </a>
 </div>
+
 <div class="card">
   <div class="card-body">
+
+    {# ── Tabs Ativos / Inativos ── #}
+    <div class="btn-group btn-group-sm mb-3" role="group">
+      <a href="?status=ativos{% if q %}&q={{ q }}{% endif %}"
+         class="btn {% if status_filtro == 'ativos' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        <i class="bi bi-check-circle"></i> Ativos
+      </a>
+      <a href="?status=inativos{% if q %}&q={{ q }}{% endif %}"
+         class="btn {% if status_filtro == 'inativos' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+        <i class="bi bi-eye-slash"></i> Inativos
+        {% if total_inativos > 0 %}
+        <span class="badge {% if status_filtro == 'inativos' %}bg-light text-dark{% else %}bg-danger{% endif %} ms-1">
+          {{ total_inativos }}
+        </span>
+        {% endif %}
+      </a>
+    </div>
+
+    {# ── Busca ── #}
     <form method="get" class="row g-2 mb-3">
+      <input type="hidden" name="status" value="{{ status_filtro }}">
       <div class="col-md-6">
-        <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por placa, cliente, marca, modelo...">
+        <input type="text" name="q" value="{{ q }}" class="form-control"
+               placeholder="Buscar por placa, cliente, marca, modelo...">
       </div>
       <div class="col-auto">
-        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i> Buscar</button>
-        {% if q %}<a href="{% url 'veiculos:list' %}" class="btn btn-outline-secondary">Limpar</a>{% endif %}
+        <button type="submit" class="btn btn-outline-primary">
+          <i class="bi bi-search"></i> Buscar
+        </button>
+        {% if q %}
+        <a href="?status={{ status_filtro }}" class="btn btn-outline-secondary">Limpar</a>
+        {% endif %}
       </div>
     </form>
+
+    {# ── Tabela ── #}
     <div class="table-responsive">
       <table class="table table-hover">
         <thead class="table-light">
-          <tr><th>Placa</th><th>Cliente</th><th>Modelo</th><th>Ano</th><th>Combustível</th><th>KM</th><th>Ações</th></tr>
+          <tr>
+            <th>Placa</th><th>Cliente</th><th>Modelo</th>
+            <th>Ano</th><th>Combustível</th><th>KM</th><th>Ações</th>
+          </tr>
         </thead>
         <tbody>
           {% for v in veiculos %}
-          <tr>
-            <td><a href="{% url 'veiculos:detail' v.pk %}" class="fw-bold text-decoration-none">{{ v.placa }}</a></td>
-            <td><a href="{% url 'clientes:detail' v.cliente.pk %}" class="text-decoration-none">{{ v.cliente.nome }}</a></td>
+          <tr {% if not v.ativo %}class="text-muted"{% endif %}>
+            <td>
+              <a href="{% url 'veiculos:detail' v.pk %}"
+                 class="fw-bold text-decoration-none {% if not v.ativo %}text-muted{% endif %}">
+                {{ v.placa }}
+              </a>
+              {% if not v.ativo %}
+              <span class="badge bg-secondary ms-1" style="font-size:.65rem">Inativo</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{% url 'clientes:detail' v.cliente.pk %}"
+                 class="text-decoration-none {% if not v.ativo %}text-muted{% endif %}">
+                {{ v.cliente.nome }}
+              </a>
+            </td>
             <td>{{ v.modelo }}</td>
             <td>{{ v.ano_modelo }}</td>
             <td>{{ v.get_combustivel_display }}</td>
             <td>{{ v.km_atual|floatformat:0 }} km</td>
             <td>
-              <a href="{% url 'veiculos:detail' v.pk %}" class="btn btn-sm btn-outline-info" title="Ver"><i class="bi bi-eye"></i></a>
-              <a href="{% url 'veiculos:update' v.pk %}" class="btn btn-sm btn-outline-warning" title="Editar"><i class="bi bi-pencil"></i></a>
+              <a href="{% url 'veiculos:detail' v.pk %}"
+                 class="btn btn-sm btn-outline-info" title="Ver">
+                <i class="bi bi-eye"></i>
+              </a>
+              <a href="{% url 'veiculos:update' v.pk %}"
+                 class="btn btn-sm btn-outline-warning" title="Editar">
+                <i class="bi bi-pencil"></i>
+              </a>
+              {% if not v.ativo %}
+              <button type="button"
+                      class="btn btn-sm btn-outline-success"
+                      title="Reativar veículo"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modalReativarVeiculo"
+                      data-url="{% url 'veiculos:reativar' v.pk %}"
+                      data-placa="{{ v.placa }}"
+                      data-cliente="{{ v.cliente.nome|escapejs }}">
+                <i class="bi bi-arrow-counterclockwise"></i>
+              </button>
+              {% endif %}
+              <a href="{% url 'veiculos:delete' v.pk %}"
+                 class="btn btn-sm btn-outline-danger" title="Excluir / Inativar">
+                <i class="bi bi-trash"></i>
+              </a>
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="7" class="text-center text-muted py-4">Nenhum veículo encontrado.</td></tr>
+          <tr>
+            <td colspan="7" class="text-center text-muted py-4">
+              {% if status_filtro == 'inativos' %}
+                Nenhum veículo inativo encontrado.
+              {% else %}
+                Nenhum veículo ativo encontrado.
+              {% endif %}
+            </td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+
+    {# ── Paginação — preserva status e busca ── #}
     {% if is_paginated %}
-    <nav><ul class="pagination pagination-sm justify-content-center">
-      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}">«</a></li>{% endif %}
-      <li class="page-item active"><a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a></li>
-      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}">»</a></li>{% endif %}
-    </ul></nav>
+    <nav>
+      <ul class="pagination pagination-sm justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link"
+             href="?page={{ page_obj.previous_page_number }}&status={{ status_filtro }}{% if q %}&q={{ q }}{% endif %}">
+            «
+          </a>
+        </li>
+        {% endif %}
+        <li class="page-item active">
+          <a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a>
+        </li>
+        {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link"
+             href="?page={{ page_obj.next_page_number }}&status={{ status_filtro }}{% if q %}&q={{ q }}{% endif %}">
+            »
+          </a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
     {% endif %}
+
   </div>
 </div>
+
+{# ══ Modal de confirmação — Reativar Veículo ══ #}
+<div class="modal fade" id="modalReativarVeiculo" tabindex="-1"
+     aria-labelledby="modalReativarTitulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="modalReativarTitulo">
+          <i class="bi bi-arrow-counterclockwise me-2"></i> Reativar Veículo
+        </h5>
+        <button type="button" class="btn-close btn-close-white"
+                data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="mb-3">Confirma a reativação do veículo:</p>
+        <div class="rounded border px-3 py-2 bg-light small">
+          <div class="fw-bold fs-6" id="modalReativarPlaca"></div>
+          <div class="text-muted" id="modalReativarCliente"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg me-1"></i> Cancelar
+        </button>
+        <form method="post" id="formReativarVeiculo" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-arrow-counterclockwise me-1"></i> Reativar
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.getElementById('modalReativarVeiculo').addEventListener('show.bs.modal', function (e) {
+  var btn     = e.relatedTarget;
+  var url     = btn.dataset.url;
+  var placa   = btn.dataset.placa;
+  var cliente = btn.dataset.cliente;
+  document.getElementById('modalReativarPlaca').textContent   = placa;
+  document.getElementById('modalReativarCliente').textContent = cliente;
+  document.getElementById('formReativarVeiculo').action       = url;
+});
+</script>
+{% endblock %}
 {% endblock %}
