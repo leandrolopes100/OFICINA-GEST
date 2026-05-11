@@ -23,6 +23,13 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 _raw_hosts = os.environ.get('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost')
 ALLOWED_HOSTS = [h.strip() for h in _raw_hosts.split(',') if h.strip()]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://oficinagest.com.br",
+    "https://www.oficinagest.com.br",
+]
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
