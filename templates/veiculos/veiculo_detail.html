@@ -55,6 +55,7 @@
           <dt class="col-5">RENAVAM</dt><dd class="col-7">{{ veiculo.renavam|default:"—" }}</dd>
           <dt class="col-5">Chassi</dt><dd class="col-7">{{ veiculo.chassi|default:"—" }}</dd>
           <dt class="col-5">KM Atual</dt><dd class="col-7">{{ veiculo.km_atual|floatformat:0 }} km</dd>
+          <dt class="col-5">Observações</dt><dd class="col-7">{{ veiculo.observacoes|default:"—" }}</dd>
           {% if veiculo.km_proxima_revisao %}
           <dt class="col-5">Próx. Revisão</dt><dd class="col-7">{{ veiculo.km_proxima_revisao }} km</dd>
           {% endif %}
