@@ -3,8 +3,6 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Carrega variáveis do arquivo .env se ele existir (sem biblioteca externa).
-# Usa os.environ.setdefault para não sobrescrever variáveis já definidas no ambiente.
 _env_path = BASE_DIR / '.env'
 if _env_path.exists():
     for _line in _env_path.read_text(encoding='utf-8').splitlines():
@@ -15,7 +13,6 @@ if _env_path.exists():
 
 SECRET_KEY = os.environ.get(
     'DJANGO_SECRET_KEY',
-    'django-insecure-oficina-mecanica-2024-change-in-production',
 )
 
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
@@ -24,8 +21,8 @@ _raw_hosts = os.environ.get('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost')
 ALLOWED_HOSTS = [h.strip() for h in _raw_hosts.split(',') if h.strip()]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://oficinagest.com.br",
-    "https://www.oficinagest.com.br",
+    "",
+    "",
 ]
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -102,7 +99,7 @@ if _db_engine == 'postgresql':
         }
     }
 else:
-    # SQLite — mantido como fallback para compatibilidade
+
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
