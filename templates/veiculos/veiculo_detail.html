@@ -50,7 +50,7 @@
           </dd>
           <dt class="col-5">Marca/Modelo</dt><dd class="col-7">{{ veiculo.modelo }}</dd>
           <dt class="col-5">Ano Fab/Mod</dt><dd class="col-7">{{ veiculo.ano_fabricacao }}/{{ veiculo.ano_modelo }}</dd>
-          <dt class="col-5">Cor</dt><dd class="col-7">{{ veiculo.cor }}</dd>
+          <dt class="col-5">Cor</dt><dd class="col-7">{{ veiculo.cor|default:"—" }}</dd>
           <dt class="col-5">Combustível</dt><dd class="col-7">{{ veiculo.get_combustivel_display }}</dd>
           <dt class="col-5">RENAVAM</dt><dd class="col-7">{{ veiculo.renavam|default:"—" }}</dd>
           <dt class="col-5">Chassi</dt><dd class="col-7">{{ veiculo.chassi|default:"—" }}</dd>
