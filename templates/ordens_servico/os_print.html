@@ -1,4 +1,4 @@
-{% load oficina_tags %}<!DOCTYPE html>
+{% load static oficina_tags %}<!DOCTYPE html>
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
@@ -75,11 +75,12 @@
       padding-bottom: 10px;
       margin-bottom: 12px;
     }
-    .company-name {
-      font-size: 18pt;
-      font-weight: 700;
-      color: var(--azul);
-      line-height: 1.1;
+    .company-logo {
+      display: block;
+      height: 12mm;
+      max-width: 60mm;
+      object-fit: contain;
+      width: auto;
     }
     .company-sub {
       font-size: 8pt;
@@ -343,8 +344,8 @@
   {# ── 1. Cabeçalho ── #}
   <div class="header">
     <div>
-      <div class="company-name">Oficina-Gest</div>
-      <div class="company-sub">Sistema de Gestão — Ordem de Serviço</div>
+      <img src="{% static 'logo_parceiro_claro.png' %}" alt="R2RENT" class="company-logo">
+      <div class="company-sub">Ordem de Serviço</div>
     </div>
     <div class="os-badge">
       <div class="os-num">OS-{{ os.numero }}</div>

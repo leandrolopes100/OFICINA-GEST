@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
@@ -19,6 +19,7 @@
     .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background: rgba(255,255,255,0.1); border-radius: 6px; }
     .sidebar .nav-link i { margin-right: 8px; }
     .sidebar .sidebar-header { padding: 1.2rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .sidebar .sidebar-logo { display: block; width: 100%; max-width: 190px; height: auto; max-height: 56px; object-fit: contain; object-position: left center; margin-bottom: .55rem; }
     .sidebar .section-label { font-size: 0.7rem; text-transform: uppercase; color: #6c757d; padding: 0.8rem 1rem 0.2rem; letter-spacing: 1px; }
     .main-content { margin-left: 250px; padding: 20px; }
     .navbar-top { background: #fff; border-bottom: 1px solid #dee2e6; padding: 0.5rem 1.5rem; }
@@ -47,6 +48,7 @@
         background: #1a1a2e; color: #fff; padding: .7rem 1rem;
         position: sticky; top: 0; z-index: 200;
       }
+      .navbar-mobile .logo-mobile { height: 26px; width: auto; max-width: 160px; object-fit: contain; display: block; }
       .navbar-mobile .btn-hamburger { background: transparent; border: none; color: #fff; font-size: 1.4rem; padding: 0; line-height: 1; }
       .sidebar {
         width: 250px; transform: translateX(-100%);
@@ -69,12 +71,12 @@
   <button class="btn-hamburger" id="btnSidebarToggle" type="button" aria-label="Abrir menu">
     <i class="bi bi-list"></i>
   </button>
-  <span class="fw-bold"><i class="bi bi-wrench-adjustable-circle-fill text-warning"></i> Oficina-Gest</span>
+  <img src="{% static 'logo_parceiro_escuro.png' %}" alt="R2RENT" class="logo-mobile">
 </div>
 <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 <div class="sidebar d-flex flex-column" id="sidebar">
   <div class="sidebar-header">
-    <div class="text-white fw-bold fs-5"><i class="bi bi-wrench-adjustable-circle-fill text-warning"></i> Oficina-Gest</div>
+    <img src="{% static 'logo_parceiro_escuro.png' %}" alt="R2RENT" class="sidebar-logo">
     <div class="text-warning small fw-semibold" style="letter-spacing: 0.5px;">Gestão de Oficina</div>
     <div class="text-muted small">Dev Leandro Lopes</div>
   </div>

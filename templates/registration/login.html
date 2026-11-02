@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
@@ -52,17 +52,17 @@
       background: rgba(255,255,255,.03);
     }
 
-    .brand-icon {
-      font-size: 3.2rem;
-      color: #ffc107;
-      margin-bottom: .75rem;
-    }
-
-    .brand-name {
-      font-size: 1.9rem;
-      font-weight: 700;
-      line-height: 1.1;
-      margin-bottom: .4rem;
+    .brand-logo {
+      display: block;
+      width: 100%;
+      max-width: 300px;
+      height: auto;
+      max-height: 110px;
+      object-fit: contain;
+      object-position: left center;
+      margin-bottom: 1rem;
+      position: relative;
+      z-index: 1;
     }
 
     .brand-tagline {
@@ -111,6 +111,17 @@
     .form-box {
       width: 100%;
       max-width: 400px;
+    }
+
+    .logo-mobile {
+      display: none;
+      width: 100%;
+      max-width: 220px;
+      height: auto;
+      max-height: 80px;
+      object-fit: contain;
+      object-position: left center;
+      margin: 0 0 1.75rem;
     }
 
     .form-box h5 {
@@ -182,6 +193,7 @@
       .brand-panel { display: none; }
       .form-panel  { padding: 1.5rem; background: #fff; }
       .form-box    { max-width: 100%; }
+      .logo-mobile { display: block; }
     }
   </style>
 </head>
@@ -192,8 +204,7 @@
   {# ── Painel esquerdo — identidade visual ── #}
   <div class="brand-panel">
     <div>
-      <div class="brand-icon"><i class="bi bi-wrench-adjustable-circle-fill"></i></div>
-      <div class="brand-name">Oficina<br>Gest</div>
+      <img src="{% static 'logo_parceiro_escuro.png' %}" alt="R2RENT" class="brand-logo">
       <div class="brand-tagline">Sistema de Gestão Integrado</div>
 
       <ul class="feature-list">
@@ -212,6 +223,7 @@
   <div class="form-panel">
     <div class="form-box">
 
+      <img src="{% static 'logo_parceiro_claro.png' %}" alt="R2RENT" class="logo-mobile">
       <h5>Bem-vindo de volta</h5>
       <p class="subtitle">Faça login para acessar o sistema</p>
 

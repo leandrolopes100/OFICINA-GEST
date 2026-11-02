@@ -4,8 +4,9 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image
+from reportlab.lib.enums import TA_RIGHT
+from django.contrib.staticfiles import finders
 
 
 def gerar_pdf_orcamento(orcamento):
@@ -16,14 +17,26 @@ def gerar_pdf_orcamento(orcamento):
     styles = getSampleStyleSheet()
     story = []
 
-    title_style = ParagraphStyle('title', parent=styles['Heading1'], alignment=TA_CENTER, fontSize=16)
     normal = styles['Normal']
     small = ParagraphStyle('small', parent=styles['Normal'], fontSize=8)
 
     # Header
-    story.append(Paragraph('ORÇAMENTO DE SERVIÇOS - OFICINA RUBI', title_style))
-    story.append(Paragraph(f'<b>Nº {orcamento.numero}</b>', ParagraphStyle('num', parent=styles['Normal'], alignment=TA_CENTER, fontSize=12)))
-    story.append(Spacer(1, 0.5*cm))
+    logo_path = finders.find('logo_parceiro_claro.png')
+    logo = Image(logo_path, width=5.5*cm, height=1.6*cm, kind='proportional', hAlign='LEFT') if logo_path else ''
+    titulo_style = ParagraphStyle('titulo', parent=styles['Normal'], alignment=TA_RIGHT, fontSize=14, fontName='Helvetica-Bold', leading=17)
+    num_style = ParagraphStyle('num', parent=styles['Normal'], alignment=TA_RIGHT, fontSize=11)
+    header = Table(
+        [[logo, [Paragraph('ORÇAMENTO DE SERVIÇOS', titulo_style), Paragraph(f'<b>Nº {orcamento.numero}</b>', num_style)]]],
+        colWidths=[8.5*cm, 8.5*cm],
+    )
+    header.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(header)
+    story.append(HRFlowable(width='100%', thickness=2, color=colors.HexColor('#1a1a2e'), spaceBefore=6))
+    story.append(Spacer(1, 0.4*cm))
 
     # Cliente/Veículo info
     info_data = [

@@ -20,12 +20,19 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 _raw_hosts = os.environ.get('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost')
 ALLOWED_HOSTS = [h.strip() for h in _raw_hosts.split(',') if h.strip()]
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://oficinagest.com.br",
-    "https://www.oficinagest.com.br",
-]
+_raw_origins = os.environ.get(
+    'DJANGO_CSRF_TRUSTED_ORIGINS',
+    'https://oficinagest.com.br,https://www.oficinagest.com.br',
+)
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in _raw_origins.split(',') if o.strip()]
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+if os.environ.get('DJANGO_HTTPS_ENABLED', 'False') == 'True':
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -134,6 +141,21 @@ CACHES = {
         'LOCATION': 'oficina-cache',
         'TIMEOUT': 300,
     }
+}
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'padrao': {'format': '{asctime} {levelname} {name}: {message}', 'style': '{'},
+    },
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'padrao'},
+    },
+    'root': {'handlers': ['console'], 'level': 'WARNING'},
+    'loggers': {
+        'django': {'handlers': ['console'], 'level': os.environ.get('DJANGO_LOG_LEVEL', 'WARNING'), 'propagate': False},
+    },
 }
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
