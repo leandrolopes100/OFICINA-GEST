@@ -21,6 +21,9 @@
     .sidebar .nav-link { color: #adb5bd; padding: 0.5rem 1rem; font-size: 0.9rem; }
     .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background: rgba(255,255,255,0.1); border-radius: 6px; }
     .sidebar .nav-link i { margin-right: 8px; }
+    .sidebar .nav-link-em-breve { opacity: .45; cursor: not-allowed; user-select: none; }
+    .sidebar .nav-link-em-breve:hover { color: #adb5bd; background: transparent; }
+    .sidebar .badge-em-breve { font-size: .6rem; font-weight: 600; background: rgba(255,193,7,.15); color: #ffc107; margin-left: 4px; vertical-align: middle; }
     .sidebar .sidebar-header { padding: 1.2rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
     .sidebar .sidebar-logo { display: block; width: 100%; max-width: 190px; height: auto; max-height: 56px; object-fit: contain; object-position: left center; margin-bottom: .7rem; }
     .marca-sistema { display: block; font-family: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif; font-weight: 700; font-size: 1.05rem; line-height: 1; letter-spacing: .01em; color: #eceef2; white-space: nowrap; }
@@ -130,6 +133,13 @@
     <a href="/financeiro/fluxo-caixa/" class="nav-link {% if 'fluxo-caixa' in request.path %}active{% endif %}">
       <i class="bi bi-graph-up-arrow"></i> Fluxo de Caixa
     </a>
+    <div class="section-label">Fiscal</div>
+    <span class="nav-link nav-link-em-breve" title="Em desenvolvimento" aria-disabled="true">
+      <i class="bi bi-receipt"></i> NFS-e (Serviços) <span class="badge rounded-pill badge-em-breve">Em breve</span>
+    </span>
+    <span class="nav-link nav-link-em-breve" title="Em desenvolvimento" aria-disabled="true">
+      <i class="bi bi-receipt-cutoff"></i> NF-e (Peças) <span class="badge rounded-pill badge-em-breve">Em breve</span>
+    </span>
     {% endif %}
     {% if user.role == 'admin' %}
     <div class="section-label">Relatórios</div>
@@ -245,7 +255,7 @@
     function fecharSidebar() { sidebar.classList.remove('show'); backdrop.classList.remove('show'); }
     toggleBtn.addEventListener('click', abrirSidebar);
     backdrop.addEventListener('click', fecharSidebar);
-    sidebar.querySelectorAll('.nav-link').forEach(function (el) {
+    sidebar.querySelectorAll('.nav-link:not(.nav-link-em-breve)').forEach(function (el) {
       el.addEventListener('click', fecharSidebar);
     });
   }
