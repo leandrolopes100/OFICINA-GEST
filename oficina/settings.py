@@ -9,7 +9,10 @@ if _env_path.exists():
         _line = _line.strip()
         if _line and not _line.startswith('#') and '=' in _line:
             _k, _, _v = _line.partition('=')
-            os.environ.setdefault(_k.strip(), _v.strip())
+            _v = _v.strip()
+            if len(_v) >= 2 and _v[0] == _v[-1] and _v[0] in '"\'':
+                _v = _v[1:-1]
+            os.environ.setdefault(_k.strip(), _v)
 
 SECRET_KEY = os.environ.get(
     'DJANGO_SECRET_KEY',
@@ -81,6 +84,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.versao',
             ],
         },
     },
@@ -189,7 +193,7 @@ OFICINA_NOME      = os.environ.get('OFICINA_NOME') or 'Oficina-Gest'
 OFICINA_WHATSAPP  = os.environ.get('OFICINA_WHATSAPP', '')
 OFICINA_LOGO      = os.environ.get('OFICINA_LOGO') or 'logo_parceiro_claro.png'
 
-IP_CLIENTE_CABECALHO = os.environ.get('DJANGO_IP_CLIENTE_CABECALHO') or 'HTTP_X_FORWARDED_FOR'
+IP_CLIENTE_CABECALHO =os.environ.get('DJANGO_IP_CLIENTE_CABECALHO') or 'HTTP_X_FORWARDED_FOR'
 
 # Token de reset válido por 3 dias (padrão Django = 3 dias)
 PASSWORD_RESET_TIMEOUT = int(os.environ.get('PASSWORD_RESET_TIMEOUT', str(60 * 60 * 24 * 3)))

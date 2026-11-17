@@ -22,6 +22,7 @@
     .sidebar .sidebar-logo { display: block; width: 100%; max-width: 190px; height: auto; max-height: 56px; object-fit: contain; object-position: left center; margin-bottom: .55rem; }
     .sidebar .section-label { font-size: 0.7rem; text-transform: uppercase; color: #6c757d; padding: 0.8rem 1rem 0.2rem; letter-spacing: 1px; }
     .main-content { margin-left: 250px; padding: 20px; }
+    .faixa-versao { margin: -20px -20px 16px; padding: 3px 20px; font-size: .7rem; line-height: 1.5; color: #8a919b; background: #eef0f2; border-bottom: 1px solid #e3e6ea; text-align: right; }
     .navbar-top { background: #fff; border-bottom: 1px solid #dee2e6; padding: 0.5rem 1.5rem; }
     .badge-alert { position: absolute; top: -4px; right: -4px; font-size: 0.6rem; }
     .card { border: none; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
@@ -159,6 +160,11 @@
 {% endif %}
 {% if user.is_authenticated %}
 <div class="main-content">
+  {% if versao_sistema %}
+  <div class="faixa-versao">
+    Versão de {{ versao_sistema|date:"d/m/Y" }} às {{ versao_sistema|date:"H:i" }} - LopSystem
+  </div>
+  {% endif %}
 {% else %}
 <div class="container mt-4">
 {% endif %}
