@@ -1,0 +1,49 @@
+<style>
+  .s2-opcao-preco { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .s2-opcao-preco .s2-nome { overflow: hidden; text-overflow: ellipsis; }
+  .s2-opcao-preco .s2-preco { white-space: nowrap; font-weight: 600; font-variant-numeric: tabular-nums; opacity: .85; }
+</style>
+<script>
+(function () {
+  var formatoBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  function paraNumero(valor) {
+    if (typeof valor === 'number') return valor;
+    var texto = String(valor == null ? '' : valor).trim();
+    if (!texto) return null;
+    if (texto.indexOf(',') !== -1) texto = texto.replace(/\./g, '').replace(',', '.');
+    var numero = parseFloat(texto);
+    return isNaN(numero) ? null : numero;
+  }
+
+  window.select2OpcaoComPreco = function (obterPreco) {
+    return function (item) {
+      if (!item.id) return item.text;
+      var preco = paraNumero(obterPreco(item));
+      if (preco === null) return item.text;
+      var linha = document.createElement('span');
+      linha.className = 's2-opcao-preco';
+      var nome = document.createElement('span');
+      nome.className = 's2-nome';
+      nome.textContent = item.text;
+      var valor = document.createElement('span');
+      valor.className = 's2-preco';
+      valor.textContent = formatoBRL.format(preco);
+      linha.appendChild(nome);
+      linha.appendChild(valor);
+      return linha;
+    };
+  };
+
+  window.precoDoCatalogo = function (catalogo) {
+    return function (item) {
+      var dados = catalogo[String(item.id)];
+      return dados ? dados.preco : null;
+    };
+  };
+
+  window.precoDoAtributo = function (item) {
+    return item.element ? item.element.getAttribute('data-preco') : null;
+  };
+})();
+</script>

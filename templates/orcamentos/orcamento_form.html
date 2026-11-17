@@ -166,6 +166,7 @@
 {% endblock %}
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+{% include 'includes/_select2_preco.html' %}
 <script>
 const tiposServico = {{ tipos_servico_json|safe }};
 const produtos     = {{ produtos_json|safe }};
@@ -268,10 +269,12 @@ document.getElementById('orcamento-form').addEventListener('input', function (e)
 
 /* ── Select2 + auto-preenchimento por linha ─────────────────────────────── */
 function initSelect2InRow(row, prefix) {
+  const catalogo = prefix === 'servico' ? tiposServico : produtos;
   $(row).find('select').select2({
     theme: 'bootstrap-5',
     width: '100%',
     language: { noResults: () => 'Nenhum resultado encontrado' },
+    templateResult: select2OpcaoComPreco(precoDoCatalogo(catalogo)),
   });
 
   if (prefix === 'servico') {

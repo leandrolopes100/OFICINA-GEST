@@ -539,6 +539,8 @@
 </div>
 {% endif %}
 
+{% endblock %}
+
 {% block extra_js %}
 <script>
 (function () {
@@ -568,11 +570,13 @@
 </script>
 {% if os.pode_editar %}
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+{% include 'includes/_select2_preco.html' %}
 <script>
 (function () {
   var s2opts = {
     theme: 'bootstrap-5', width: '100%',
     language: { noResults: function () { return 'Nenhum resultado encontrado'; } },
+    templateResult: select2OpcaoComPreco(precoDoAtributo),
   };
 
   /* ── Modal Serviço ─────────────────────────────────────────────────────── */
@@ -638,5 +642,4 @@
 }());
 </script>
 {% endif %}
-{% endblock %}
 {% endblock %}

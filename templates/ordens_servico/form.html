@@ -232,6 +232,7 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+{% include 'includes/_select2_preco.html' %}
 <script>
 'use strict';
 
@@ -320,7 +321,7 @@ function initServicoSelect(el) {
   if (el.value && SERVICOS[el.value]) {
     el.dataset.autoDesc = SERVICOS[el.value].nome;
   }
-  s2base(el);
+  s2base(el, { templateResult: select2OpcaoComPreco(precoDoCatalogo(SERVICOS)) });
   $(el).off('select2:select.fill').on('select2:select.fill', function () {
     autofill(this, SERVICOS);
   });
@@ -332,7 +333,7 @@ function initProdutoSelect(el) {
   if (el.value && PRODUTOS[el.value]) {
     el.dataset.autoDesc = PRODUTOS[el.value].nome;
   }
-  s2base(el);
+  s2base(el, { templateResult: select2OpcaoComPreco(precoDoCatalogo(PRODUTOS)) });
   $(el).off('select2:select.fill').on('select2:select.fill', function () {
     autofill(this, PRODUTOS);
   });

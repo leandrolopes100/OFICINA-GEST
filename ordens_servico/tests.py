@@ -267,3 +267,24 @@ class DataCancelamentoTests(BaseOrdemTestCase):
         ordem.refresh_from_db()
         self.assertEqual(ordem.status, 'cancelada')
         self.assertIsNotNone(ordem.data_cancelamento)
+
+
+class PrecoNasListasDeSelecaoTests(BaseOrdemTestCase):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.usuario)
+
+    def test_telas_carregam_a_exibicao_de_preco(self):
+        ordem = self.criar_ordem()
+        urls = [
+            reverse('orcamentos:create'),
+            reverse('ordens_servico:os_criar'),
+            reverse('ordens_servico:os_editar', args=[ordem.pk]),
+            reverse('ordens_servico:os_detalhe', args=[ordem.pk]),
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                resposta = self.client.get(url)
+                self.assertEqual(resposta.status_code, 200)
+                self.assertContains(resposta, 'window.select2OpcaoComPreco', count=1)
+                self.assertContains(resposta, 'templateResult: select2OpcaoComPreco(')
