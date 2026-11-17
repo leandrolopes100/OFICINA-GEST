@@ -1,3 +1,6 @@
+import secrets
+from datetime import timedelta
+
 from django.db import models, transaction
 from django.utils import timezone
 
@@ -51,6 +54,7 @@ class OrdemServico(models.Model):
     data_previsao = models.DateField('Previsão de Conclusão', null=True, blank=True, db_index=True)
     data_conclusao = models.DateTimeField('Data de Conclusão', null=True, blank=True)
     data_entrega = models.DateTimeField('Data de Entrega', null=True, blank=True)
+    data_cancelamento = models.DateTimeField('Data de Cancelamento', null=True, blank=True)
     km_entrada = models.PositiveIntegerField('KM na Entrada', default=0)
     km_saida = models.PositiveIntegerField('KM na Saída', null=True, blank=True)
     subtotal_servicos = models.DecimalField('Subtotal Serviços', max_digits=10, decimal_places=2, default=0)
@@ -61,6 +65,21 @@ class OrdemServico(models.Model):
     diagnostico = models.TextField('Diagnóstico do Mecânico', blank=True)
     servicos_realizados = models.TextField('Observações dos Serviços', blank=True)
     observacoes_entrega = models.TextField('Observações na Entrega', blank=True)
+    token_publico = models.CharField(
+        'Token do link de acompanhamento', max_length=64,
+        unique=True, null=True, blank=True, editable=False,
+    )
+    link_gerado_em = models.DateTimeField('Link gerado em', null=True, blank=True, editable=False)
+
+    DIAS_LINK_APOS_ENCERRAMENTO = 30
+
+    ETAPAS_ACOMPANHAMENTO = [
+        ('aberta', 'Recebido'),
+        ('em_andamento', 'Em serviço'),
+        ('aguardando', 'Aguardando peça/aprovação'),
+        ('concluida', 'Pronto para retirada'),
+        ('entregue', 'Entregue'),
+    ]
 
     class Meta:
         verbose_name = 'Ordem de Serviço'
@@ -98,6 +117,65 @@ class OrdemServico(models.Model):
     def pode_mudar_para(self, novo_status: str) -> bool:
         """Valida se a transição de status é permitida pela máquina de estados."""
         return novo_status in self.TRANSICOES_VALIDAS.get(self.status, set())
+
+    def registrar_mudanca_status(self, novo_status):
+        self.status = novo_status
+        agora = timezone.now()
+        if novo_status == 'concluida' and not self.data_conclusao:
+            self.data_conclusao = agora
+        elif novo_status == 'entregue' and not self.data_entrega:
+            self.data_entrega = agora
+        elif novo_status == 'cancelada' and not self.data_cancelamento:
+            self.data_cancelamento = agora
+
+    def garantir_link_publico(self):
+        OrdemServico.objects.filter(pk=self.pk, token_publico__isnull=True).update(
+            token_publico=secrets.token_urlsafe(32), link_gerado_em=timezone.now(),
+        )
+        self.refresh_from_db(fields=['token_publico', 'link_gerado_em'])
+        return self.token_publico
+
+    def regenerar_link_publico(self):
+        self.token_publico = secrets.token_urlsafe(32)
+        self.link_gerado_em = timezone.now()
+        self.save(update_fields=['token_publico', 'link_gerado_em'])
+        return self.token_publico
+
+    @property
+    def data_encerramento(self):
+        if self.status == 'entregue':
+            return self.data_entrega
+        if self.status == 'cancelada':
+            return self.data_cancelamento
+        return None
+
+    @property
+    def link_expira_em(self):
+        if self.status not in ('entregue', 'cancelada'):
+            return None
+        referencias = [data for data in (self.data_encerramento, self.link_gerado_em) if data]
+        if not referencias:
+            return None
+        return max(referencias) + timedelta(days=self.DIAS_LINK_APOS_ENCERRAMENTO)
+
+    @property
+    def link_visivel_ao_cliente(self):
+        if not self.token_publico:
+            return False
+        if self.status in ('entregue', 'cancelada'):
+            expira = self.link_expira_em
+            return expira is not None and timezone.now() <= expira
+        return True
+
+    @property
+    def etapas_acompanhamento(self):
+        codigos = [codigo for codigo, _ in self.ETAPAS_ACOMPANHAMENTO]
+        atual = codigos.index(self.status) if self.status in codigos else -1
+        return [
+            {'rotulo': rotulo, 'concluida': indice < atual, 'atual': indice == atual}
+            for indice, (codigo, rotulo) in enumerate(self.ETAPAS_ACOMPANHAMENTO)
+            if codigo != 'aguardando' or self.status == 'aguardando'
+        ]
 
     @property
     def pode_editar(self):

@@ -58,6 +58,13 @@
     </button>
     {% endif %}
 
+    {% if os.status == 'concluida' %}
+    {% include 'ordens_servico/_botao_whatsapp.html' with tipo='pronto' rotulo='Avisar que está pronto' motivo=motivo_bloqueio_pronto %}
+    {% endif %}
+    {% if os.status != 'cancelada' %}
+    {% include 'ordens_servico/_botao_whatsapp.html' with tipo='acompanhamento' rotulo='Enviar acompanhamento' motivo=motivo_bloqueio_acompanhamento contorno=True %}
+    {% endif %}
+
     <a href="{% url 'ordens_servico:os_imprimir' os.pk %}" class="btn btn-outline-primary btn-sm" target="_blank">
       <i class="bi bi-printer"></i> Imprimir
     </a>
@@ -110,6 +117,40 @@
         </dl>
       </div>
     </div>
+
+    {% if os.status != 'cancelada' %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-link-45deg"></i> Link de acompanhamento</div>
+      <div class="card-body small">
+        {% if url_acompanhamento %}
+        <div class="input-group input-group-sm">
+          <input type="text" class="form-control" id="linkCliente" value="{{ url_acompanhamento }}" readonly aria-label="Link de acompanhamento">
+          <button type="button" class="btn btn-outline-primary" id="btnCopiarLink" title="Copiar link">
+            <i class="bi bi-clipboard"></i>
+          </button>
+          <a href="{{ url_acompanhamento }}" target="_blank" rel="noopener" class="btn btn-outline-secondary" title="Abrir como o cliente vê">
+            <i class="bi bi-box-arrow-up-right"></i>
+          </a>
+        </div>
+        <div class="text-muted mt-2" style="font-size:.75rem">
+          Gerado em {{ os.link_gerado_em|date:"d/m/Y H:i" }}.
+          {% if os.link_expira_em %}Disponível ao cliente até {{ os.link_expira_em|date:"d/m/Y" }}.{% endif %}
+        </div>
+        {% elif os.token_publico %}
+        <p class="text-muted mb-2">O link anterior expirou.</p>
+        {% else %}
+        <p class="text-muted mb-2">O cliente acompanha o status e os valores da OS por um link, sem precisar de login.</p>
+        {% endif %}
+        <form method="post" action="{% url 'ordens_servico:os_novo_link' os.pk %}" class="mt-2"
+              {% if url_acompanhamento %}onsubmit="return confirm('Gerar um novo link? O link já enviado ao cliente deixará de funcionar.');"{% endif %}>
+          {% csrf_token %}
+          <button type="submit" class="btn btn-link btn-sm p-0">
+            {% if os.token_publico %}Gerar novo link{% else %}Gerar link{% endif %}
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
 
     <div class="card mb-3">
       <div class="card-header">Defeito / Diagnóstico</div>
@@ -499,6 +540,32 @@
 {% endif %}
 
 {% block extra_js %}
+<script>
+(function () {
+  var botaoCopiar = document.getElementById('btnCopiarLink');
+  if (botaoCopiar) {
+    botaoCopiar.addEventListener('click', function () {
+      var campo = document.getElementById('linkCliente');
+      var confirmar = function () {
+        botaoCopiar.innerHTML = '<i class="bi bi-check2"></i>';
+        setTimeout(function () { botaoCopiar.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 2000);
+      };
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(campo.value).then(confirmar);
+      } else {
+        campo.select();
+        document.execCommand('copy');
+        confirmar();
+      }
+    });
+  }
+  document.querySelectorAll('form[data-whatsapp]').forEach(function (form) {
+    form.addEventListener('submit', function () {
+      setTimeout(function () { window.location.reload(); }, 1500);
+    });
+  });
+})();
+</script>
 {% if os.pode_editar %}
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>

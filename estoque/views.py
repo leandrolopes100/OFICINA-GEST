@@ -192,7 +192,7 @@ class MovimentacaoListView(LoginRequiredMixin, ListView):
     model = MovimentacaoEstoque
     template_name = 'estoque/movimentacao_list.html'
     context_object_name = 'movimentacoes'
-    paginate_by = 30
+    paginate_by = 20
 
     def get_queryset(self):
         return MovimentacaoEstoque.objects.select_related('produto', 'usuario').order_by('-data')
@@ -237,6 +237,13 @@ class MovimentacaoCreateView(LoginRequiredMixin, CreateView):
         try:
             response = super().form_valid(form)
             messages.success(self.request, 'Movimentação registrada com sucesso!')
+            if getattr(self.object, 'preco_venda_nao_recalculado', False):
+                messages.warning(
+                    self.request,
+                    f'O preço de venda de "{self.object.produto.nome}" não foi recalculado: '
+                    'com o novo custo e a margem cadastrada, ele passaria do limite do sistema. '
+                    'Revise a margem no cadastro do produto.',
+                )
             return response
         except ValueError as exc:
             messages.error(self.request, str(exc))

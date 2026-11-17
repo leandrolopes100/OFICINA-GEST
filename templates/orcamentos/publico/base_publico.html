@@ -13,7 +13,7 @@
     .pagina { max-width: 640px; margin: 0 auto; padding: 16px 16px 40px; }
     .topo { background: #1a1a2e; color: #fff; }
     .topo .pagina { padding-top: 14px; padding-bottom: 14px; display: flex; align-items: center; gap: 12px; }
-    .topo img { max-height: 40px; max-width: 160px; object-fit: contain; background: #fff; border-radius: 6px; padding: 4px 6px; }
+    .topo img { height: 32px; width: auto; max-width: 170px; object-fit: contain; display: block; }
     .topo .nome-oficina { font-weight: 600; font-size: 1rem; line-height: 1.2; }
     .bloco { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.07); padding: 16px; margin-bottom: 12px; }
     .bloco-titulo { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #8a919b; margin-bottom: 10px; }
@@ -26,12 +26,17 @@
     .total-final { font-size: 1.35rem; font-weight: 700; border-top: 1px solid #e9ecef; margin-top: 6px; padding-top: 8px; }
     .btn-lg { font-size: 1rem; padding: .8rem 1rem; }
     details summary { cursor: pointer; }
+    .rodape { border-top: 1px solid #dde1e6; margin-top: 8px; padding: 18px 16px 28px; text-align: center; font-size: .78rem; color: #8a919b; line-height: 1.6; }
+    .rodape strong { color: #495057; font-weight: 700; }
+    .rodape a { color: #495057; text-decoration: none; font-weight: 600; }
+    .rodape a:hover { text-decoration: underline; }
   </style>
+  {% block extra_css %}{% endblock %}
 </head>
 <body>
 <header class="topo">
   <div class="pagina">
-    {% if oficina.logo %}<img src="{% static oficina.logo %}" alt="">{% endif %}
+    <img src="{% static 'logo_parceiro_escuro.png' %}" alt="R2RENT">
     <div class="nome-oficina">{{ oficina.nome }}</div>
   </div>
 </header>
@@ -41,5 +46,10 @@
   {% endfor %}
   {% block content %}{% endblock %}
 </main>
+<footer class="pagina rodape">
+  Sistema de gestão<br>
+  <strong>LopSystem</strong><br>
+  <a href="https://lopsystem.com.br" target="_blank" rel="noopener">lopsystem.com.br <i class="bi bi-box-arrow-up-right"></i></a>
+</footer>
 </body>
 </html>

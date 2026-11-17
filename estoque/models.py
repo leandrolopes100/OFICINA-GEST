@@ -1,3 +1,5 @@
+from decimal import Decimal, ROUND_HALF_UP
+
 from django.db import models, transaction
 
 
@@ -49,7 +51,7 @@ class Produto(models.Model):
     fornecedor = models.ForeignKey(Fornecedor, on_delete=models.SET_NULL, null=True, blank=True, related_name='produtos')
     preco_custo = models.DecimalField('Preço de Custo', max_digits=10, decimal_places=2, default=0)
     preco_venda = models.DecimalField('Preço de Venda', max_digits=10, decimal_places=2, default=0)
-    margem_lucro = models.DecimalField('Margem de Lucro (%)', max_digits=5, decimal_places=2, default=0)
+    margem_lucro = models.DecimalField('Margem de Lucro (%)', max_digits=10, decimal_places=2, default=0)
     unidade = models.CharField('Unidade', max_length=2, choices=UNIDADE_CHOICES, default='un')
     estoque_atual = models.DecimalField('Estoque Atual', max_digits=10, decimal_places=3, default=0, db_index=True)
     estoque_minimo = models.DecimalField('Estoque Mínimo', max_digits=10, decimal_places=3, default=0)
@@ -68,8 +70,17 @@ class Produto(models.Model):
             models.Index(fields=['ativo', 'nome'], name='produto_ativo_nome_idx'),
         ]
 
+    VALOR_MAXIMO = Decimal('99999999.99')
+
     def __str__(self):
         return f'[{self.codigo}] {self.nome}'
+
+    @classmethod
+    def preco_venda_pela_margem(cls, custo, margem):
+        preco = (custo * (1 + margem / Decimal('100'))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        if preco > cls.VALOR_MAXIMO:
+            return None
+        return preco
 
     @property
     def abaixo_minimo(self):
@@ -108,8 +119,6 @@ class MovimentacaoEstoque(models.Model):
         return f'{self.get_tipo_display()} — {self.produto} ({self.quantidade})'
 
     def save(self, *args, **kwargs):
-        from decimal import Decimal, ROUND_HALF_UP
-
         # Prepara observação automática para movimentações de ajuste
         if self.pk is None and self.tipo == 'ajuste' and not self.observacao:
             try:
@@ -158,9 +167,11 @@ class MovimentacaoEstoque(models.Model):
                 produto.preco_custo = novo_custo
                 update_fields.append('preco_custo')
                 if produto.margem_lucro > 0:
-                    produto.preco_venda = (
-                        novo_custo * (1 + produto.margem_lucro / Decimal('100'))
-                    ).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-                    update_fields.append('preco_venda')
+                    novo_preco = Produto.preco_venda_pela_margem(novo_custo, produto.margem_lucro)
+                    if novo_preco is None:
+                        self.preco_venda_nao_recalculado = True
+                    else:
+                        produto.preco_venda = novo_preco
+                        update_fields.append('preco_venda')
 
             produto.save(update_fields=update_fields)

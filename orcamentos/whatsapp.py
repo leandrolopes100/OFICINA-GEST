@@ -1,21 +1,9 @@
 from django.urls import reverse
 
 from core.templatetags.oficina_tags import currency
-from core.whatsapp import identidade_oficina, montar_link_whatsapp, normalizar_telefone_whatsapp
-
-
-def telefone_whatsapp_cliente(cliente):
-    if not cliente.whatsapp:
-        return None
-    return normalizar_telefone_whatsapp(cliente.celular, cliente.telefone)
-
-
-def motivo_sem_whatsapp(cliente):
-    if not cliente.whatsapp:
-        return 'O cadastro do cliente está marcado como "sem WhatsApp".'
-    if not telefone_whatsapp_cliente(cliente):
-        return 'O cliente não tem celular válido com DDD no cadastro.'
-    return ''
+from core.whatsapp import (
+    identidade_oficina, montar_link_whatsapp, motivo_sem_whatsapp, telefone_whatsapp_cliente,
+)
 
 
 def motivo_bloqueio_envio(orcamento):

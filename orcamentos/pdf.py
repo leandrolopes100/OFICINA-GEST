@@ -9,6 +9,8 @@ from reportlab.lib.enums import TA_RIGHT
 from django.conf import settings
 from django.contrib.staticfiles import finders
 
+from core.pdf import desenhar_rodape
+
 
 def gerar_pdf_orcamento(orcamento):
     buffer = io.BytesIO()
@@ -138,5 +140,5 @@ def gerar_pdf_orcamento(orcamento):
     story.append(HRFlowable(width='100%'))
     story.append(Paragraph('Assinatura do Cliente: _______________________________   Data: ___/___/______', small))
 
-    doc.build(story)
+    doc.build(story, onFirstPage=desenhar_rodape, onLaterPages=desenhar_rodape)
     return buffer.getvalue()

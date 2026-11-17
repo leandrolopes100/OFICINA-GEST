@@ -1,0 +1,125 @@
+{% extends 'orcamentos/publico/base_publico.html' %}
+{% load oficina_tags %}
+{% block title %}Acompanhamento OS-{{ ordem.numero }} — {{ oficina.nome }}{% endblock %}
+{% block extra_css %}
+<style>
+  .etapas { list-style: none; margin: 0; padding: 0; }
+  .etapa { display: flex; align-items: flex-start; gap: 12px; position: relative; padding-bottom: 18px; }
+  .etapa:last-child { padding-bottom: 0; }
+  .etapa:not(:last-child)::before { content: ''; position: absolute; left: 11px; top: 24px; bottom: 0; width: 2px; background: #dee2e6; }
+  .etapa.concluida:not(:last-child)::before { background: #198754; }
+  .marcador { flex: 0 0 24px; height: 24px; border-radius: 50%; border: 2px solid #ced4da; background: #fff; display: flex; align-items: center; justify-content: center; font-size: .8rem; color: #fff; position: relative; z-index: 1; }
+  .etapa.concluida .marcador { background: #198754; border-color: #198754; }
+  .etapa.atual .marcador { background: #0d6efd; border-color: #0d6efd; box-shadow: 0 0 0 4px rgba(13,110,253,.18); }
+  .etapa-rotulo { padding-top: 1px; color: #8a919b; }
+  .etapa.concluida .etapa-rotulo { color: #212529; }
+  .etapa.atual .etapa-rotulo { color: #0d6efd; font-weight: 700; }
+</style>
+{% endblock %}
+{% block content %}
+{% if ordem.status == 'cancelada' %}
+<div class="alert alert-secondary d-flex gap-2 align-items-start">
+  <i class="bi bi-x-circle-fill fs-5"></i>
+  <div><strong>Este serviço foi cancelado.</strong> Se tiver alguma dúvida, fale com a oficina.</div>
+</div>
+{% elif ordem.status == 'concluida' %}
+<div class="alert alert-success d-flex gap-2 align-items-start">
+  <i class="bi bi-check-circle-fill fs-5"></i>
+  <div><strong>Seu veículo está pronto para retirada.</strong></div>
+</div>
+{% elif ordem.status == 'entregue' %}
+<div class="alert alert-light border d-flex gap-2 align-items-start">
+  <i class="bi bi-hand-thumbs-up-fill fs-5 text-success"></i>
+  <div><strong>Veículo entregue{% if ordem.data_entrega %} em {{ ordem.data_entrega|date:"d/m/Y" }}{% endif %}.</strong> Obrigado pela confiança!</div>
+</div>
+{% endif %}
+
+<div class="bloco">
+  <div class="d-flex justify-content-between align-items-start gap-2">
+    <div>
+      <div class="bloco-titulo mb-1">Ordem de serviço</div>
+      <div class="h5 mb-0 fw-bold">OS-{{ ordem.numero }}</div>
+    </div>
+    <div class="text-end small text-muted">
+      Entrada em {{ ordem.data_abertura|date:"d/m/Y" }}
+      {% if ordem.data_previsao and ordem.status != 'entregue' and ordem.status != 'cancelada' and ordem.status != 'concluida' %}
+      <br>Previsão <strong class="text-dark">{{ ordem.data_previsao|date:"d/m/Y" }}</strong>
+      {% endif %}
+    </div>
+  </div>
+  <hr class="my-3">
+  <div class="small">
+    <div class="text-muted">Veículo</div>
+    <div class="fw-semibold">{{ ordem.veiculo.marca.nome }} {{ ordem.veiculo.modelo.nome }} · {{ ordem.veiculo.placa }}</div>
+  </div>
+</div>
+
+{% if ordem.status != 'cancelada' %}
+<div class="bloco">
+  <div class="bloco-titulo">Situação: <span class="text-dark">{{ situacao }}</span></div>
+  <ol class="etapas">
+    {% for etapa in etapas %}
+    <li class="etapa{% if etapa.concluida %} concluida{% elif etapa.atual %} atual{% endif %}"{% if etapa.atual %} aria-current="step"{% endif %}>
+      <span class="marcador">{% if etapa.concluida %}<i class="bi bi-check-lg"></i>{% endif %}</span>
+      <span class="etapa-rotulo">{{ etapa.rotulo }}</span>
+    </li>
+    {% endfor %}
+  </ol>
+</div>
+{% endif %}
+
+{% if ordem.defeito_relatado %}
+<div class="bloco small">
+  <div class="bloco-titulo">Defeito relatado</div>
+  <p class="mb-0">{{ ordem.defeito_relatado|linebreaksbr }}</p>
+</div>
+{% endif %}
+
+{% if itens_servico %}
+<div class="bloco">
+  <div class="bloco-titulo"><i class="bi bi-tools"></i> Serviços</div>
+  {% for item in itens_servico %}
+  <div class="item">
+    <div>
+      <div class="item-desc">{{ item.descricao }}</div>
+      <div class="item-qtd">{{ item.quantidade|floatformat:"-2" }} × {{ item.preco_unitario|currency }}</div>
+    </div>
+    <div class="item-valor">{{ item.total|currency }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if itens_peca %}
+<div class="bloco">
+  <div class="bloco-titulo"><i class="bi bi-box-seam"></i> Peças e materiais</div>
+  {% for item in itens_peca %}
+  <div class="item">
+    <div>
+      <div class="item-desc">{{ item.descricao }}</div>
+      <div class="item-qtd">{{ item.quantidade|floatformat:"-3" }} × {{ item.preco_unitario|currency }}</div>
+    </div>
+    <div class="item-valor">{{ item.total|currency }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if itens_servico or itens_peca %}
+<div class="bloco">
+  <div class="total-linha"><span>Serviços</span><span>{{ ordem.subtotal_servicos|currency }}</span></div>
+  <div class="total-linha"><span>Peças</span><span>{{ ordem.subtotal_pecas|currency }}</span></div>
+  {% if ordem.desconto_valor %}<div class="total-linha text-success"><span>Desconto</span><span>- {{ ordem.desconto_valor|currency }}</span></div>{% endif %}
+  <div class="total-linha total-final"><span>Total</span><span>{{ ordem.total|currency }}</span></div>
+  {% if ordem.pode_editar %}<div class="text-muted small mt-2">Valores parciais: podem mudar até a conclusão do serviço.</div>{% endif %}
+</div>
+{% endif %}
+
+{% if whatsapp_oficina_url %}
+<div class="d-grid">
+  <a href="{{ whatsapp_oficina_url }}" class="btn btn-success btn-lg" rel="noopener">
+    <i class="bi bi-whatsapp"></i> Falar com a oficina
+  </a>
+</div>
+{% endif %}
+{% endblock %}

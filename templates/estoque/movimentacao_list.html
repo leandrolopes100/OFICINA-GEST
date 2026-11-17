@@ -46,16 +46,27 @@
     </table>
   </div>
   {% if is_paginated %}
-  <div class="card-footer">
-    <nav>
-      <ul class="pagination pagination-sm justify-content-center mb-0">
-        {% if page_obj.has_previous %}
-        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">«</a></li>
-        {% endif %}
-        <li class="page-item active"><a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a></li>
-        {% if page_obj.has_next %}
-        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">»</a></li>
-        {% endif %}
+  <div class="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <small class="text-muted">
+      Mostrando {{ page_obj.start_index }}–{{ page_obj.end_index }} de {{ page_obj.paginator.count }} movimentações
+    </small>
+    <nav aria-label="Paginação das movimentações">
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item{% if not page_obj.has_previous %} disabled{% endif %}">
+          <a class="page-link" href="?page=1" aria-label="Primeira página">«</a>
+        </li>
+        <li class="page-item{% if not page_obj.has_previous %} disabled{% endif %}">
+          <a class="page-link" href="{% if page_obj.has_previous %}?page={{ page_obj.previous_page_number }}{% else %}#{% endif %}" aria-label="Página anterior">‹</a>
+        </li>
+        <li class="page-item active" aria-current="page">
+          <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        </li>
+        <li class="page-item{% if not page_obj.has_next %} disabled{% endif %}">
+          <a class="page-link" href="{% if page_obj.has_next %}?page={{ page_obj.next_page_number }}{% else %}#{% endif %}" aria-label="Próxima página">›</a>
+        </li>
+        <li class="page-item{% if not page_obj.has_next %} disabled{% endif %}">
+          <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}" aria-label="Última página">»</a>
+        </li>
       </ul>
     </nav>
   </div>

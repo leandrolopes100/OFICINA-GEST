@@ -16,7 +16,12 @@ from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.db.models import Q, Exists, OuterRef
 from core.utils import calcular_taxa, registrar_historico
 
+from core.whatsapp import formatar_telefone_exibicao, motivo_sem_whatsapp
 from .models import OrdemServico, ItemOSServico, ItemOSPeca
+from .whatsapp import (
+    ACOMPANHAMENTO, PRONTO, TIPOS_MENSAGEM, link_whatsapp_ordem, motivo_bloqueio_envio,
+    url_publica_ordem,
+)
 from .forms import (
     OrdemServicoForm,
     ItemOSServicoFormSet,
@@ -190,6 +195,16 @@ class OrdemServicoDetailView(LoginRequiredMixin, DetailView):
             ctx['ja_pago']          = False
 
         ctx['historico_list'] = self.object.historico.select_related('usuario')[:15]
+
+        sem_whatsapp = motivo_sem_whatsapp(self.object.cliente)
+        ctx['motivo_bloqueio_acompanhamento'] = (
+            motivo_bloqueio_envio(self.object, ACOMPANHAMENTO) or sem_whatsapp
+        )
+        ctx['motivo_bloqueio_pronto'] = motivo_bloqueio_envio(self.object, PRONTO) or sem_whatsapp
+        ctx['url_acompanhamento'] = (
+            url_publica_ordem(self.request, self.object)
+            if self.object.link_visivel_ao_cliente else ''
+        )
         return ctx
 
 
@@ -361,9 +376,7 @@ class AtualizarStatusView(LoginRequiredMixin, View):
                                 ),
                                 usuario=request.user,
                             )
-                    if not os.data_conclusao:
-                        os.data_conclusao = timezone.now()
-                    os.status = novo_status
+                    os.registrar_mudanca_status(novo_status)
                     os.save()
                 n_pecas = itens_peca.count()
                 messages.success(
@@ -384,9 +397,7 @@ class AtualizarStatusView(LoginRequiredMixin, View):
             return redirect(reverse('ordens_servico:os_detalhe', kwargs={'pk': pk}))
 
         # ── Demais transições de status ──
-        os.status = novo_status
-        if novo_status == 'entregue' and not os.data_entrega:
-            os.data_entrega = timezone.now()
+        os.registrar_mudanca_status(novo_status)
         os.save()
         messages.success(request, f'Status atualizado: {os.get_status_display()}')
         registrar_historico(
@@ -412,9 +423,7 @@ class EntregarOSView(LoginRequiredMixin, View):
                 messages.error(request, 'KM de saída inválido.')
                 return redirect(reverse('ordens_servico:os_detalhe', kwargs={'pk': pk}))
 
-        os.status = 'entregue'
-        if not os.data_entrega:
-            os.data_entrega = timezone.now()
+        os.registrar_mudanca_status('entregue')
         os.save()
         messages.success(request, f'OS {os.numero} marcada como entregue!')
         km_info = f' — KM saída: {os.km_saida:,}' if os.km_saida else ''
@@ -431,13 +440,54 @@ class CancelarOSView(LoginRequiredMixin, View):
             messages.error(request, 'Não é possível cancelar esta OS no status atual.')
         else:
             status_anterior = os.get_status_display()
-            os.status = 'cancelada'
+            os.registrar_mudanca_status('cancelada')
             os.save()
             messages.success(request, f'OS {os.numero} cancelada.')
             registrar_historico(ordem_servico=os, tipo='status',
                                 descricao=f'Status: {status_anterior} → Cancelada.',
                                 usuario=request.user)
         return redirect(reverse('ordens_servico:os_detalhe', kwargs={'pk': pk}))
+
+
+class OSEnviarWhatsAppView(LoginRequiredMixin, View):
+    def post(self, request, pk, tipo):
+        os = get_object_or_404(OrdemServico.objects.select_related('cliente', 'veiculo__modelo'), pk=pk)
+        url_detalhe = reverse('ordens_servico:os_detalhe', kwargs={'pk': pk})
+        if tipo not in TIPOS_MENSAGEM:
+            return redirect(url_detalhe)
+
+        motivo = motivo_bloqueio_envio(os, tipo) or motivo_sem_whatsapp(os.cliente)
+        if motivo:
+            messages.error(request, f'Não foi possível enviar pelo WhatsApp. {motivo}')
+            return redirect(url_detalhe)
+
+        os.garantir_link_publico()
+        telefone, url_whatsapp = link_whatsapp_ordem(request, os, tipo)
+        assunto = 'Aviso de veículo pronto' if tipo == PRONTO else 'Link de acompanhamento'
+        registrar_historico(
+            ordem_servico=os, tipo='outro', usuario=request.user,
+            descricao=f'{assunto} enviado pelo WhatsApp para {formatar_telefone_exibicao(telefone)}.',
+        )
+        return redirect(url_whatsapp)
+
+
+class OSNovoLinkView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        os = get_object_or_404(OrdemServico, pk=pk)
+        url_detalhe = reverse('ordens_servico:os_detalhe', kwargs={'pk': pk})
+        if os.status == 'cancelada':
+            messages.error(request, 'Não é possível gerar link para uma OS cancelada.')
+            return redirect(url_detalhe)
+        tinha_link = bool(os.token_publico)
+        os.regenerar_link_publico()
+        if tinha_link:
+            messages.success(request, 'Novo link gerado. O link anterior deixou de funcionar.')
+            descricao = 'Novo link de acompanhamento gerado; o link anterior foi invalidado.'
+        else:
+            messages.success(request, 'Link de acompanhamento gerado. Copie e envie ao cliente.')
+            descricao = 'Link de acompanhamento gerado.'
+        registrar_historico(ordem_servico=os, tipo='outro', descricao=descricao, usuario=request.user)
+        return redirect(url_detalhe)
 
 
 # ---------------------------------------------------------------------------

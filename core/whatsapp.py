@@ -50,3 +50,17 @@ def identidade_oficina():
         'logo': settings.OFICINA_LOGO,
         'whatsapp': normalizar_telefone_whatsapp(settings.OFICINA_WHATSAPP),
     }
+
+
+def telefone_whatsapp_cliente(cliente):
+    if not cliente.whatsapp:
+        return None
+    return normalizar_telefone_whatsapp(cliente.celular, cliente.telefone)
+
+
+def motivo_sem_whatsapp(cliente):
+    if not cliente.whatsapp:
+        return 'O cadastro do cliente está marcado como "sem WhatsApp".'
+    if not telefone_whatsapp_cliente(cliente):
+        return 'O cliente não tem celular válido com DDD no cadastro.'
+    return ''

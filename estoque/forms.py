@@ -1,3 +1,5 @@
+from decimal import Decimal, ROUND_HALF_UP
+
 from django import forms
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Row, Column, Submit, HTML
@@ -24,7 +26,17 @@ class FornecedorForm(forms.ModelForm):
         )
 
 
+def _formatar_limite(valor):
+    return f'{valor:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+
+
 class ProdutoForm(forms.ModelForm):
+    margem_lucro = forms.DecimalField(
+        label='Margem de Lucro (%)',
+        initial=0,
+        widget=forms.NumberInput(attrs={'step': 'any'}),
+    )
+
     # Campo extra (não é campo do model); só aparece na criação
     quantidade_inicial = forms.DecimalField(
         label='Quantidade Inicial em Estoque',
@@ -81,6 +93,26 @@ class ProdutoForm(forms.ModelForm):
 
         self.helper = FormHelper()
         self.helper.layout = Layout(*rows)
+
+    def clean_margem_lucro(self):
+        margem = self.cleaned_data['margem_lucro'].quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        if abs(margem) > Produto.VALOR_MAXIMO:
+            raise forms.ValidationError(
+                f'A margem máxima aceita é {_formatar_limite(Produto.VALOR_MAXIMO)}%.'
+            )
+        return margem
+
+    def clean(self):
+        cleaned = super().clean()
+        custo = cleaned.get('preco_custo')
+        margem = cleaned.get('margem_lucro')
+        if custo and margem is not None and Produto.preco_venda_pela_margem(custo, margem) is None:
+            self.add_error(
+                'margem_lucro',
+                'Com esse custo, essa margem resulta num preço de venda acima do limite de '
+                f'R$ {_formatar_limite(Produto.VALOR_MAXIMO)}.',
+            )
+        return cleaned
 
 
 class MovimentacaoForm(forms.ModelForm):

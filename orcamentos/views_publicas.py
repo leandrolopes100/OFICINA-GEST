@@ -1,56 +1,16 @@
-import ipaddress
-
-from django.conf import settings
 from django.contrib import messages
-from django.core.cache import cache
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views import View
 
+from core.publico import excedeu_limite, ip_do_cliente, muitas_requisicoes, proteger
 from core.utils import registrar_historico
 from core.whatsapp import identidade_oficina, montar_link_whatsapp
 from .forms import RespostaClienteForm
 from .models import ConteudoAlterado, LinkIndisponivel, Orcamento, RespostaCliente
 
 _ACOES = (RespostaCliente.APROVADO, RespostaCliente.RECUSADO)
-
-
-def ip_do_cliente(request):
-    cabecalho = settings.IP_CLIENTE_CABECALHO
-    valor = request.META.get(cabecalho, '') if cabecalho != 'REMOTE_ADDR' else ''
-    if cabecalho == 'HTTP_X_FORWARDED_FOR':
-        valor = valor.split(',')[-1]
-    candidato = valor.strip() or request.META.get('REMOTE_ADDR', '')
-    try:
-        return str(ipaddress.ip_address(candidato))
-    except ValueError:
-        return None
-
-
-def _excedeu_limite(request, escopo, maximo, janela_segundos):
-    chave = f'rl-publico:{escopo}:{ip_do_cliente(request) or "desconhecido"}'
-    cache.add(chave, 0, janela_segundos)
-    try:
-        total = cache.incr(chave)
-    except ValueError:
-        cache.set(chave, 1, janela_segundos)
-        total = 1
-    return total > maximo
-
-
-def _proteger(resposta):
-    resposta['X-Robots-Tag'] = 'noindex, nofollow'
-    resposta['Referrer-Policy'] = 'no-referrer'
-    resposta['Cache-Control'] = 'no-store'
-    return resposta
-
-
-def _muitas_requisicoes():
-    return _proteger(HttpResponse(
-        'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.',
-        status=429, content_type='text/plain; charset=utf-8',
-    ))
 
 
 def _obter_orcamento(token):
@@ -64,16 +24,16 @@ class OrcamentoPublicoView(View):
     template_name = 'orcamentos/publico/orcamento.html'
 
     def dispatch(self, request, *args, **kwargs):
-        if _excedeu_limite(request, 'orcamento', maximo=60, janela_segundos=60):
-            return _muitas_requisicoes()
+        if excedeu_limite(request, 'orcamento', maximo=60, janela_segundos=60):
+            return muitas_requisicoes()
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, token):
         return self._renderizar(request, _obter_orcamento(token))
 
     def post(self, request, token):
-        if _excedeu_limite(request, 'orcamento-resposta', maximo=10, janela_segundos=300):
-            return _muitas_requisicoes()
+        if excedeu_limite(request, 'orcamento-resposta', maximo=10, janela_segundos=300):
+            return muitas_requisicoes()
         orcamento = _obter_orcamento(token)
         url_pagina = reverse('orcamento_publico:detalhe', kwargs={'token': token})
 
@@ -124,7 +84,7 @@ class OrcamentoPublicoView(View):
     def _renderizar(self, request, orcamento, form_invalido=None, status=200):
         oficina = identidade_oficina()
         if not orcamento.link_visivel_ao_cliente:
-            return _proteger(render(
+            return proteger(render(
                 request, 'orcamentos/publico/indisponivel.html',
                 {'oficina': oficina, 'whatsapp_oficina_url': self._whatsapp_oficina(oficina, orcamento)},
                 status=410,
@@ -149,7 +109,7 @@ class OrcamentoPublicoView(View):
             'recusa_aberta': bool(form_invalido and form_invalido[0] == RespostaCliente.RECUSADO),
             'whatsapp_oficina_url': self._whatsapp_oficina(oficina, orcamento),
         }
-        return _proteger(render(request, self.template_name, contexto, status=status))
+        return proteger(render(request, self.template_name, contexto, status=status))
 
     @staticmethod
     def _whatsapp_oficina(oficina, orcamento):
@@ -163,12 +123,12 @@ class OrcamentoPublicoView(View):
 
 class OrcamentoPublicoPdfView(View):
     def get(self, request, token):
-        if _excedeu_limite(request, 'orcamento-pdf', maximo=20, janela_segundos=60):
-            return _muitas_requisicoes()
+        if excedeu_limite(request, 'orcamento-pdf', maximo=20, janela_segundos=60):
+            return muitas_requisicoes()
         from .pdf import gerar_pdf_orcamento
         orcamento = _obter_orcamento(token)
         if not orcamento.link_visivel_ao_cliente:
             raise Http404
         resposta = HttpResponse(gerar_pdf_orcamento(orcamento), content_type='application/pdf')
         resposta['Content-Disposition'] = f'inline; filename="orcamento-{orcamento.numero}.pdf"'
-        return _proteger(resposta)
+        return proteger(resposta)
