@@ -16,6 +16,9 @@
   <meta name="twitter:card" content="summary_large_image">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&text=OFICINAGEST&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
 
@@ -70,7 +73,26 @@
       max-height: 110px;
       object-fit: contain;
       object-position: left center;
-      margin-bottom: 1rem;
+      margin-bottom: 1.1rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .marca-sistema {
+      display: block;
+      font-family: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: .01em;
+      white-space: nowrap;
+    }
+
+    .marca-sistema .marca-destaque { color: #e5252a; }
+
+    .brand-panel .marca-sistema {
+      font-size: 1.7rem;
+      color: #eceef2;
+      margin-bottom: .6rem;
       position: relative;
       z-index: 1;
     }
@@ -106,8 +128,34 @@
       margin-top: auto;
       padding-top: 2rem;
       font-size: .75rem;
-      color: #495057;
+      color: #6c757d;
     }
+
+    .brand-footer a,
+    .site-sistema {
+      color: inherit;
+      text-decoration: none;
+      transition: color .15s ease;
+    }
+
+    .brand-footer a:hover { color: #adb5bd; }
+
+    .form-box .marca-sistema {
+      display: none;
+      font-size: 1.35rem;
+      color: #1a1a2e;
+      margin: -.9rem 0 1.75rem;
+    }
+
+    .site-sistema {
+      display: none;
+      margin-top: 2.5rem;
+      text-align: center;
+      font-size: .72rem;
+      color: #adb5bd;
+    }
+
+    .site-sistema:hover { color: #6c757d; }
 
     /* ── Painel direito — formulário ── */
     .form-panel {
@@ -204,6 +252,8 @@
       .form-panel  { padding: 1.5rem; background: #fff; }
       .form-box    { max-width: 100%; }
       .logo-mobile { display: block; }
+      .form-box .marca-sistema { display: block; }
+      .site-sistema { display: block; }
     }
   </style>
 </head>
@@ -215,6 +265,7 @@
   <div class="brand-panel">
     <div>
       <img src="{% static 'logo_parceiro_escuro.png' %}" alt="R2RENT" class="brand-logo">
+      <span class="marca-sistema">OFICINA<span class="marca-destaque">GEST</span></span>
       <div class="brand-tagline">Sistema de Gestão Integrado</div>
 
       <ul class="feature-list">
@@ -226,7 +277,9 @@
         <li><i class="bi bi-people-fill"></i> Clientes e Veículos</li>
       </ul>
     </div>
-    <div class="brand-footer">© Oficina-Gest — Sistema de Gestão</div>
+    <div class="brand-footer">
+      Oficina Gest - Sistema de Gestão · <a href="https://lopsystem.com.br" target="_blank" rel="noopener">www.lopsystem.com.br</a>
+    </div>
   </div>
 
   {# ── Painel direito — formulário ── #}
@@ -234,6 +287,7 @@
     <div class="form-box">
 
       <img src="{% static 'logo_parceiro_claro.png' %}" alt="R2RENT" class="logo-mobile">
+      <span class="marca-sistema">OFICINA<span class="marca-destaque">GEST</span></span>
       <h5>Bem-vindo de volta</h5>
       <p class="subtitle">Faça login para acessar o sistema</p>
 
@@ -290,6 +344,8 @@
           <i class="bi bi-question-circle me-1"></i>Esqueci minha senha
         </a>
       </div>
+
+      <a href="https://lopsystem.com.br" target="_blank" rel="noopener" class="site-sistema">www.lopsystem.com.br</a>
 
     </div>
   </div>
