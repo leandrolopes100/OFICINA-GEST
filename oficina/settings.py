@@ -185,5 +185,11 @@ DEFAULT_FROM_EMAIL  = os.environ.get(
     'DEFAULT_FROM_EMAIL',
     'Oficina-Gest <noreply@oficina-gest.com.br>',
 )
+OFICINA_NOME      = os.environ.get('OFICINA_NOME') or 'Oficina-Gest'
+OFICINA_WHATSAPP  = os.environ.get('OFICINA_WHATSAPP', '')
+OFICINA_LOGO      = os.environ.get('OFICINA_LOGO') or 'logo_parceiro_claro.png'
+
+IP_CLIENTE_CABECALHO = os.environ.get('DJANGO_IP_CLIENTE_CABECALHO') or 'HTTP_X_FORWARDED_FOR'
+
 # Token de reset válido por 3 dias (padrão Django = 3 dias)
 PASSWORD_RESET_TIMEOUT = int(os.environ.get('PASSWORD_RESET_TIMEOUT', str(60 * 60 * 24 * 3)))

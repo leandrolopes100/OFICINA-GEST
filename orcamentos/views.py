@@ -13,10 +13,14 @@ from django.utils import timezone
 from django.views import View
 
 from estoque.models import Produto
-from .models import Orcamento, TipoServico
+from .models import Orcamento, TipoServico, TransicaoStatusInvalida
 from .forms import OrcamentoForm, ItemServicoFormSet, ItemPecaFormSet, TipoServicoForm
+from .whatsapp import (
+    link_whatsapp_orcamento, motivo_bloqueio_envio, motivo_sem_whatsapp, url_publica_orcamento,
+)
 from core.mixins import RoleRequiredMixin
 from core.utils import registrar_historico
+from core.whatsapp import formatar_telefone_exibicao
 
 _CACHE_KEY_TIPOS = 'lookup_tipos_servico_json_v1'
 _CACHE_KEY_PRODUTOS = 'lookup_produtos_json_v1'
@@ -71,8 +75,10 @@ class OrcamentoListView(LoginRequiredMixin, ListView):
             qs = qs.filter(status=status)
         if q:
             qs = qs.filter(cliente__nome__icontains=q)
-        if aguardando_os == '1':
+        if aguardando_os in ('1', 'cliente'):
             qs = qs.filter(status='aprovado', tem_os=False)
+        if aguardando_os == 'cliente':
+            qs = qs.filter(respostas_cliente__decisao='aprovado').distinct()
 
         return qs
 
@@ -105,6 +111,13 @@ class OrcamentoDetailView(LoginRequiredMixin, DetailView):
         ctx['itens_servico']  = self.object.itens_servico.select_related('tipo_servico')
         ctx['itens_peca']     = self.object.itens_peca.select_related('produto')
         ctx['historico_list'] = self.object.historico.select_related('usuario')[:15]
+        ctx['resposta_cliente'] = self.object.respostas_cliente.first()
+        ctx['motivo_bloqueio_envio'] = motivo_bloqueio_envio(self.object)
+        ctx['motivo_sem_whatsapp'] = ctx['motivo_bloqueio_envio'] or motivo_sem_whatsapp(self.object.cliente)
+        ctx['url_publica'] = (
+            url_publica_orcamento(self.request, self.object)
+            if self.object.link_visivel_ao_cliente else ''
+        )
         return ctx
 
 
@@ -186,10 +199,19 @@ class OrcamentoUpdateView(LoginRequiredMixin, UpdateView):
                 form.instance.data_aprovacao = timezone.now()
             elif novo_status != 'aprovado':
                 form.instance.data_aprovacao = None
-            self.object = form.save()
-            fs_servico.save()
-            fs_peca.save()
-            self.object.recalcular_totais()
+            with transaction.atomic():
+                atual = Orcamento.objects.select_for_update().get(pk=form.instance.pk)
+                if not atual.pode_editar:
+                    messages.error(
+                        self.request,
+                        f'O orçamento ORC-{atual.numero} mudou para "{atual.get_status_display()}" '
+                        'enquanto você editava. As alterações não foram salvas.',
+                    )
+                    return redirect(reverse('orcamentos:detail', kwargs={'pk': atual.pk}))
+                self.object = form.save()
+                fs_servico.save()
+                fs_peca.save()
+                self.object.recalcular_totais()
             messages.success(self.request, 'Orçamento atualizado com sucesso!')
             registrar_historico(orcamento=self.object, tipo='edicao',
                                 descricao='Orçamento editado.',
@@ -202,43 +224,94 @@ class OrcamentoUpdateView(LoginRequiredMixin, UpdateView):
         return reverse_lazy('orcamentos:detail', kwargs={'pk': self.object.pk})
 
 
-class OrcamentoAprovarView(LoginRequiredMixin, View):
+class _TransicaoStatusView(LoginRequiredMixin, View):
+    metodo = None
+    rotulo = None
+    nivel_mensagem = messages.SUCCESS
+    texto_sucesso = None
+
     def post(self, request, pk):
         orc = get_object_or_404(Orcamento, pk=pk)
-        status_anterior = orc.get_status_display()
-        orc.status         = 'aprovado'
-        orc.data_aprovacao = timezone.now()
-        orc.save()
-        messages.success(request, f'Orçamento {orc} aprovado!')
+        try:
+            status_anterior = getattr(orc, self.metodo)()
+        except TransicaoStatusInvalida as erro:
+            messages.error(request, str(erro))
+            return redirect(reverse('orcamentos:detail', kwargs={'pk': pk}))
+        messages.add_message(request, self.nivel_mensagem, self.texto_sucesso.format(orc=orc))
         registrar_historico(orcamento=orc, tipo='status',
-                            descricao=f'Status: {status_anterior} → Aprovado.',
+                            descricao=f'Status: {status_anterior} → {self.rotulo}.',
                             usuario=request.user)
         return redirect(reverse('orcamentos:detail', kwargs={'pk': pk}))
 
 
-class OrcamentoReprovarView(LoginRequiredMixin, View):
-    def post(self, request, pk):
-        orc = get_object_or_404(Orcamento, pk=pk)
-        status_anterior = orc.get_status_display()
-        orc.status = 'reprovado'
-        orc.save()
-        messages.warning(request, f'Orçamento {orc} reprovado.')
-        registrar_historico(orcamento=orc, tipo='status',
-                            descricao=f'Status: {status_anterior} → Reprovado.',
-                            usuario=request.user)
-        return redirect(reverse('orcamentos:detail', kwargs={'pk': pk}))
+class OrcamentoAprovarView(_TransicaoStatusView):
+    metodo = 'aprovar'
+    rotulo = 'Aprovado'
+    texto_sucesso = 'Orçamento {orc} aprovado!'
 
 
-class OrcamentoEnviarView(LoginRequiredMixin, View):
+class OrcamentoReprovarView(_TransicaoStatusView):
+    metodo = 'reprovar'
+    rotulo = 'Reprovado'
+    nivel_mensagem = messages.WARNING
+    texto_sucesso = 'Orçamento {orc} reprovado.'
+
+
+class OrcamentoEnviarView(_TransicaoStatusView):
+    metodo = 'marcar_enviado'
+    rotulo = 'Enviado ao Cliente'
+    nivel_mensagem = messages.INFO
+    texto_sucesso = 'Orçamento {orc} marcado como enviado ao cliente.'
+
+
+class OrcamentoEnviarWhatsAppView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        orc = get_object_or_404(Orcamento.objects.select_related('cliente', 'veiculo__modelo'), pk=pk)
+        url_detalhe = reverse('orcamentos:detail', kwargs={'pk': pk})
+
+        motivo = motivo_bloqueio_envio(orc) or motivo_sem_whatsapp(orc.cliente)
+        if motivo:
+            messages.error(request, f'Não foi possível enviar pelo WhatsApp. {motivo}')
+            return redirect(url_detalhe)
+
+        orc.garantir_link_publico()
+        try:
+            status_anterior = orc.marcar_enviado()
+        except TransicaoStatusInvalida as erro:
+            messages.error(request, str(erro))
+            return redirect(url_detalhe)
+
+        telefone, url_whatsapp = link_whatsapp_orcamento(request, orc)
+        descricao = f'Link do orçamento enviado pelo WhatsApp para {formatar_telefone_exibicao(telefone)}.'
+        if status_anterior != orc.get_status_display():
+            descricao = f'Status: {status_anterior} → Enviado ao Cliente. ' + descricao
+        registrar_historico(orcamento=orc, tipo='status', descricao=descricao, usuario=request.user)
+        return redirect(url_whatsapp)
+
+
+class OrcamentoNovoLinkView(LoginRequiredMixin, View):
     def post(self, request, pk):
         orc = get_object_or_404(Orcamento, pk=pk)
-        status_anterior = orc.get_status_display()
-        orc.status = 'enviado'
-        orc.save()
-        messages.info(request, f'Orçamento {orc} marcado como enviado ao cliente.')
-        registrar_historico(orcamento=orc, tipo='status',
-                            descricao=f'Status: {status_anterior} → Enviado ao Cliente.',
-                            usuario=request.user)
+        motivo = motivo_bloqueio_envio(orc)
+        if motivo:
+            messages.error(request, f'Não foi possível gerar o link. {motivo}')
+            return redirect(reverse('orcamentos:detail', kwargs={'pk': pk}))
+        tinha_link = bool(orc.token_publico)
+        orc.regenerar_link_publico()
+        try:
+            status_anterior = orc.marcar_enviado()
+        except TransicaoStatusInvalida as erro:
+            messages.error(request, str(erro))
+            return redirect(reverse('orcamentos:detail', kwargs={'pk': pk}))
+        if tinha_link:
+            messages.success(request, 'Novo link gerado. O link anterior deixou de funcionar.')
+            descricao = 'Novo link do cliente gerado; o link anterior foi invalidado.'
+        else:
+            messages.success(request, 'Link do cliente gerado. Copie e envie ao cliente.')
+            descricao = 'Link do cliente gerado.'
+        if status_anterior != orc.get_status_display():
+            descricao = f'Status: {status_anterior} → Enviado ao Cliente. ' + descricao
+        registrar_historico(orcamento=orc, tipo='status', descricao=descricao, usuario=request.user)
         return redirect(reverse('orcamentos:detail', kwargs={'pk': pk}))
 
 
@@ -334,6 +407,13 @@ class OrcamentoDeleteView(LoginRequiredMixin, View):
 
         if acao == 'excluir':
             numero = orcamento.numero
+            if orcamento.respostas_cliente.exists():
+                messages.error(
+                    request,
+                    f'O orçamento ORC-{numero} tem resposta registrada pelo cliente e não pode ser '
+                    'excluído, pois ela é o comprovante da decisão. Cancele o orçamento em vez de excluir.',
+                )
+                return redirect(reverse('orcamentos:detail', kwargs={'pk': pk}))
             orcamento.delete()          # CASCADE remove itens; SET_NULL desvincula OS
             messages.success(request, f'Orçamento ORC-{numero} excluído permanentemente.')
             return redirect(reverse('orcamentos:list'))

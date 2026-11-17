@@ -41,6 +41,14 @@
   </div>
 </div>
 
+{% if aprovados_cliente_sem_os > 0 %}
+<div class="alert alert-success d-flex align-items-center mb-3">
+  <i class="bi bi-person-check-fill me-2"></i>
+  <span><strong>{{ aprovados_cliente_sem_os }} orçamento(s)</strong> aprovado(s) pelo cliente pelo link aguardando OS.
+  <a href="{% url 'orcamentos:list' %}?aguardando_os=cliente" class="alert-link">Gerar OS</a></span>
+</div>
+{% endif %}
+
 {% if alertas_estoque > 0 %}
 <div class="alert alert-warning d-flex align-items-center mb-3">
   <i class="bi bi-exclamation-triangle-fill me-2"></i>

@@ -6,6 +6,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image
 from reportlab.lib.enums import TA_RIGHT
+from django.conf import settings
 from django.contrib.staticfiles import finders
 
 
@@ -21,7 +22,7 @@ def gerar_pdf_orcamento(orcamento):
     small = ParagraphStyle('small', parent=styles['Normal'], fontSize=8)
 
     # Header
-    logo_path = finders.find('logo_parceiro_claro.png')
+    logo_path = finders.find(settings.OFICINA_LOGO)
     logo = Image(logo_path, width=5.5*cm, height=1.6*cm, kind='proportional', hAlign='LEFT') if logo_path else ''
     titulo_style = ParagraphStyle('titulo', parent=styles['Normal'], alignment=TA_RIGHT, fontSize=14, fontName='Helvetica-Bold', leading=17)
     num_style = ParagraphStyle('num', parent=styles['Normal'], alignment=TA_RIGHT, fontSize=11)

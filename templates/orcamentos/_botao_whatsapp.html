@@ -1,0 +1,14 @@
+{% if motivo_sem_whatsapp %}
+<span class="d-inline-block" tabindex="0" title="{{ motivo_sem_whatsapp }}">
+  <button type="button" class="btn btn-{% if contorno %}outline-{% endif %}success btn-sm" disabled>
+    <i class="bi bi-whatsapp"></i> {{ rotulo }}
+  </button>
+</span>
+{% else %}
+<form method="post" action="{% url 'orcamentos:enviar_whatsapp' orcamento.pk %}" class="d-inline" target="_blank" data-whatsapp>
+  {% csrf_token %}
+  <button type="submit" class="btn btn-{% if contorno %}outline-{% endif %}success btn-sm">
+    <i class="bi bi-whatsapp"></i> {{ rotulo }}
+  </button>
+</form>
+{% endif %}

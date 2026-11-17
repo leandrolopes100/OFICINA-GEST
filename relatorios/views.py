@@ -39,6 +39,11 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         ctx['orcamentos_pendentes'] = Orcamento.objects.filter(
             status__in=['rascunho', 'enviado']
         ).count()
+        ctx['aprovados_cliente_sem_os'] = Orcamento.objects.filter(
+            status='aprovado',
+            ordem_servico__isnull=True,
+            respostas_cliente__decisao='aprovado',
+        ).distinct().count()
         ctx['alertas_estoque'] = Produto.objects.filter(
             estoque_atual__lte=F('estoque_minimo'), ativo=True
         ).count()

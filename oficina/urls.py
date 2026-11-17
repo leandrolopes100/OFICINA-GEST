@@ -18,5 +18,6 @@ urlpatterns = [
     path('estoque/', include('estoque.urls')),
     path('financeiro/', include('financeiro.urls')),
     path('relatorios/', include('relatorios.urls')),
+    path('o/', include('orcamentos.urls_publicas')),
     path('', RedirectView.as_view(url='/relatorios/', permanent=False)),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

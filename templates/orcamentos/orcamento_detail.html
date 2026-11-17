@@ -10,13 +10,9 @@
 
     {# ── Ação primária — muda conforme o status ── #}
     {% if orcamento.status == 'rascunho' %}
-    <form method="post" action="{% url 'orcamentos:enviar' orcamento.pk %}" class="d-inline">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-info btn-sm">
-        <i class="bi bi-send"></i> Enviar ao Cliente
-      </button>
-    </form>
+    {% include 'orcamentos/_botao_whatsapp.html' with rotulo='Enviar pelo WhatsApp' %}
     {% elif orcamento.status == 'enviado' %}
+    {% include 'orcamentos/_botao_whatsapp.html' with rotulo='Reenviar pelo WhatsApp' contorno=True %}
     <form method="post" action="{% url 'orcamentos:aprovar' orcamento.pk %}" class="d-inline">
       {% csrf_token %}
       <button type="submit" class="btn btn-success btn-sm">
@@ -42,6 +38,27 @@
           <a class="dropdown-item" href="{% url 'orcamentos:update' orcamento.pk %}">
             <i class="bi bi-pencil me-2"></i>Editar
           </a>
+        </li>
+        {% endif %}
+        {% if orcamento.status == 'rascunho' %}
+        <li>
+          <form method="post" action="{% url 'orcamentos:enviar' orcamento.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="dropdown-item">
+              <i class="bi bi-send me-2 text-info"></i>Marcar como enviado (sem link)
+            </button>
+          </form>
+        </li>
+        {% endif %}
+        {% if orcamento.pode_editar and not motivo_bloqueio_envio %}
+        <li>
+          <form method="post" action="{% url 'orcamentos:novo_link' orcamento.pk %}"
+                {% if orcamento.token_publico %}onsubmit="return confirm('Gerar um novo link? O link já enviado ao cliente deixará de funcionar.');"{% endif %}>
+            {% csrf_token %}
+            <button type="submit" class="dropdown-item">
+              <i class="bi bi-link-45deg me-2 text-primary"></i>{% if orcamento.token_publico %}Gerar novo link do cliente{% else %}Gerar link do cliente{% endif %}
+            </button>
+          </form>
         </li>
         {% endif %}
         {% if orcamento.status == 'rascunho' %}
@@ -93,6 +110,45 @@
         </dl>
       </div>
     </div>
+    {% if resposta_cliente %}
+    <div class="card mb-3 border-start border-4 {% if resposta_cliente.decisao == 'aprovado' %}border-success{% else %}border-danger{% endif %}">
+      <div class="card-header">
+        <i class="bi bi-person-check"></i> Resposta do cliente
+      </div>
+      <div class="card-body small">
+        <div class="fw-semibold mb-1 {% if resposta_cliente.decisao == 'aprovado' %}text-success{% else %}text-danger{% endif %}">
+          {{ resposta_cliente.get_decisao_display }}
+        </div>
+        <dl class="row mb-0">
+          <dt class="col-5">Nome informado</dt><dd class="col-7">{{ resposta_cliente.nome_informado }}</dd>
+          <dt class="col-5">Em</dt><dd class="col-7">{{ resposta_cliente.respondido_em|date:"d/m/Y H:i" }}</dd>
+          <dt class="col-5">Total aceito</dt><dd class="col-7">{{ resposta_cliente.total_no_momento|currency }}</dd>
+          {% if resposta_cliente.motivo %}<dt class="col-5">Motivo</dt><dd class="col-7">{{ resposta_cliente.motivo|linebreaksbr }}</dd>{% endif %}
+          {% if resposta_cliente.ip %}<dt class="col-5">IP</dt><dd class="col-7 text-muted">{{ resposta_cliente.ip }}</dd>{% endif %}
+        </dl>
+      </div>
+    </div>
+    {% endif %}
+    {% if url_publica %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-link-45deg"></i> Link do cliente</div>
+      <div class="card-body small">
+        <div class="input-group input-group-sm">
+          <input type="text" class="form-control" id="linkCliente" value="{{ url_publica }}" readonly aria-label="Link do cliente">
+          <button type="button" class="btn btn-outline-primary" id="btnCopiarLink" title="Copiar link">
+            <i class="bi bi-clipboard"></i>
+          </button>
+          <a href="{{ url_publica }}" target="_blank" rel="noopener" class="btn btn-outline-secondary" title="Abrir como o cliente vê">
+            <i class="bi bi-box-arrow-up-right"></i>
+          </a>
+        </div>
+        <div class="text-muted mt-2" style="font-size:.75rem">
+          Gerado em {{ orcamento.link_gerado_em|date:"d/m/Y H:i" }}.
+          {% if orcamento.status == 'enviado' %}O cliente pode aprovar ou recusar até {{ orcamento.data_validade|date:"d/m/Y" }}.{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
     <div class="card">
       <div class="card-header">Resumo Financeiro</div>
       <div class="card-body small">
@@ -207,4 +263,33 @@
   </div>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var botaoCopiar = document.getElementById('btnCopiarLink');
+  if (botaoCopiar) {
+    botaoCopiar.addEventListener('click', function () {
+      var campo = document.getElementById('linkCliente');
+      var confirmar = function () {
+        botaoCopiar.innerHTML = '<i class="bi bi-check2"></i>';
+        setTimeout(function () { botaoCopiar.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 2000);
+      };
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(campo.value).then(confirmar);
+      } else {
+        campo.select();
+        document.execCommand('copy');
+        confirmar();
+      }
+    });
+  }
+  document.querySelectorAll('form[data-whatsapp]').forEach(function (form) {
+    form.addEventListener('submit', function () {
+      setTimeout(function () { window.location.reload(); }, 1500);
+    });
+  });
+})();
+</script>
 {% endblock %}

@@ -1,3 +1,6 @@
+import hashlib
+import json
+import secrets
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -24,6 +27,24 @@ class TipoServico(models.Model):
 
     def __str__(self):
         return self.nome
+
+
+class TransicaoStatusInvalida(Exception):
+    pass
+
+
+class LinkIndisponivel(Exception):
+    pass
+
+
+class ConteudoAlterado(Exception):
+    pass
+
+
+def _serializar_decimal(valor):
+    if isinstance(valor, Decimal):
+        return format(valor.normalize(), 'f')
+    return str(valor)
 
 
 class Orcamento(models.Model):
@@ -55,6 +76,14 @@ class Orcamento(models.Model):
     total = models.DecimalField('Total', max_digits=10, decimal_places=2, default=0)
     observacoes = models.TextField('Observações', blank=True)
     condicoes = models.TextField('Condições / Garantia', blank=True)
+    token_publico = models.CharField(
+        'Token do link do cliente', max_length=64,
+        unique=True, null=True, blank=True, editable=False,
+    )
+    link_gerado_em = models.DateTimeField('Link gerado em', null=True, blank=True, editable=False)
+
+    STATUS_EM_ABERTO = frozenset({'rascunho', 'enviado'})
+    STATUS_LINK_VISIVEL = frozenset({'enviado', 'aprovado', 'reprovado'})
 
     class Meta:
         verbose_name = 'Orçamento'
@@ -94,12 +123,16 @@ class Orcamento(models.Model):
         self.save(update_fields=['subtotal_servicos', 'subtotal_pecas', 'desconto_valor', 'total'])
 
     @property
+    def validade_vencida(self):
+        return self.data_validade < timezone.localdate()
+
+    @property
     def esta_expirado(self):
-        return self.data_validade < timezone.now().date() and self.status == 'enviado'
+        return self.status == 'enviado' and self.validade_vencida
 
     @property
     def pode_editar(self):
-        return self.status in ('rascunho', 'enviado')
+        return self.status in self.STATUS_EM_ABERTO
 
     @property
     def pode_gerar_os(self):
@@ -112,6 +145,127 @@ class Orcamento(models.Model):
             return False
         except ObjectDoesNotExist:
             return True
+
+    def _transicionar(self, novo_status, permitidos, campos_extras=None):
+        with transaction.atomic():
+            travado = Orcamento.objects.select_for_update().get(pk=self.pk)
+            if travado.status not in permitidos:
+                raise TransicaoStatusInvalida(
+                    f'O orçamento ORC-{travado.numero} está "{travado.get_status_display()}" '
+                    f'e não pode passar para "{dict(self.STATUS_CHOICES)[novo_status]}".'
+                )
+            status_anterior = travado.get_status_display()
+            travado.status = novo_status
+            campos = ['status']
+            for campo, valor in (campos_extras or {}).items():
+                setattr(travado, campo, valor)
+                campos.append(campo)
+            travado.save(update_fields=campos)
+        self.status = travado.status
+        for campo in (campos_extras or {}):
+            setattr(self, campo, getattr(travado, campo))
+        return status_anterior
+
+    def aprovar(self):
+        return self._transicionar('aprovado', self.STATUS_EM_ABERTO,
+                                  {'data_aprovacao': timezone.now()})
+
+    def reprovar(self):
+        return self._transicionar('reprovado', self.STATUS_EM_ABERTO)
+
+    def marcar_enviado(self):
+        return self._transicionar('enviado', self.STATUS_EM_ABERTO)
+
+    def garantir_link_publico(self):
+        Orcamento.objects.filter(pk=self.pk, token_publico__isnull=True).update(
+            token_publico=secrets.token_urlsafe(32), link_gerado_em=timezone.now(),
+        )
+        self.refresh_from_db(fields=['token_publico', 'link_gerado_em'])
+        return self.token_publico
+
+    def regenerar_link_publico(self):
+        self.token_publico = secrets.token_urlsafe(32)
+        self.link_gerado_em = timezone.now()
+        self.save(update_fields=['token_publico', 'link_gerado_em'])
+        return self.token_publico
+
+    @property
+    def link_visivel_ao_cliente(self):
+        return bool(self.token_publico) and self.status in self.STATUS_LINK_VISIVEL
+
+    @property
+    def aceita_resposta_cliente(self):
+        return self.status == 'enviado' and not self.validade_vencida
+
+    def hash_conteudo(self):
+        campos_item = ('pk', 'descricao', 'quantidade', 'preco_unitario', 'total')
+        dados = {
+            'cliente': self.cliente_id,
+            'veiculo': self.veiculo_id,
+            'servicos': list(self.itens_servico.order_by('pk').values_list(*campos_item)),
+            'pecas': list(self.itens_peca.order_by('pk').values_list(*campos_item)),
+            'desconto': self.desconto_valor,
+            'taxa': self.taxa_valor,
+            'total': self.total,
+            'validade': self.data_validade,
+            'observacoes': self.observacoes,
+            'condicoes': self.condicoes,
+        }
+        bruto = json.dumps(dados, default=_serializar_decimal, sort_keys=True, ensure_ascii=False)
+        return hashlib.sha256(bruto.encode('utf-8')).hexdigest()
+
+    def registrar_resposta_cliente(self, *, decisao, nome, motivo, hash_visto, ip, user_agent):
+        with transaction.atomic():
+            travado = Orcamento.objects.select_for_update().get(pk=self.pk)
+            if not travado.aceita_resposta_cliente:
+                raise LinkIndisponivel
+            if not secrets.compare_digest(travado.hash_conteudo(), hash_visto or ''):
+                raise ConteudoAlterado
+            resposta = RespostaCliente.objects.create(
+                orcamento=travado,
+                decisao=decisao,
+                nome_informado=nome,
+                motivo=motivo,
+                total_no_momento=travado.total,
+                hash_conteudo=hash_visto,
+                ip=ip,
+                user_agent=(user_agent or '')[:300],
+            )
+            if decisao == RespostaCliente.APROVADO:
+                travado.aprovar()
+            else:
+                travado.reprovar()
+        self.refresh_from_db(fields=['status', 'data_aprovacao'])
+        return resposta
+
+
+class RespostaCliente(models.Model):
+    APROVADO = 'aprovado'
+    RECUSADO = 'recusado'
+    DECISAO_CHOICES = [
+        (APROVADO, 'Aprovado pelo cliente'),
+        (RECUSADO, 'Recusado pelo cliente'),
+    ]
+    orcamento = models.ForeignKey(
+        Orcamento, on_delete=models.PROTECT,
+        related_name='respostas_cliente', verbose_name='Orçamento',
+    )
+    decisao = models.CharField('Decisão', max_length=10, choices=DECISAO_CHOICES)
+    nome_informado = models.CharField('Nome informado', max_length=150)
+    motivo = models.TextField('Motivo', blank=True)
+    total_no_momento = models.DecimalField('Total no momento da resposta', max_digits=10, decimal_places=2)
+    hash_conteudo = models.CharField('Hash do conteúdo respondido', max_length=64)
+    ip = models.GenericIPAddressField('IP', null=True, blank=True)
+    user_agent = models.CharField('Navegador', max_length=300, blank=True)
+    respondido_em = models.DateTimeField('Respondido em', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Resposta do Cliente'
+        verbose_name_plural = 'Respostas do Cliente'
+        ordering = ['-respondido_em']
+
+    def __str__(self):
+        return f'{self.get_decisao_display()} — ORC-{self.orcamento.numero}'
 
 
 class ItemOrcamentoServico(models.Model):

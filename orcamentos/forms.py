@@ -190,3 +190,29 @@ ItemPecaFormSet = inlineformset_factory(
     fields=['produto', 'descricao', 'quantidade', 'preco_unitario'],
     extra=1, can_delete=True
 )
+
+
+class RespostaClienteForm(forms.Form):
+    nome = forms.CharField(
+        label='Seu nome completo', min_length=3, max_length=150,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'name'}),
+    )
+    confirmo = forms.BooleanField(
+        label='Li e aprovo os serviços e valores acima.', required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
+    motivo = forms.CharField(
+        label='Motivo (opcional)', max_length=1000, required=False,
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+    )
+    hash_conteudo = forms.CharField(max_length=64, widget=forms.HiddenInput)
+
+    def __init__(self, *args, exige_confirmacao=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.exige_confirmacao = exige_confirmacao
+
+    def clean(self):
+        cleaned = super().clean()
+        if self.exige_confirmacao and not cleaned.get('confirmo'):
+            self.add_error('confirmo', 'Marque a confirmação para aprovar o orçamento.')
+        return cleaned
