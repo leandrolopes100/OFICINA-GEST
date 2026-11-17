@@ -40,16 +40,28 @@
 <div class="card">
   <div class="card-body">
     <form method="get" class="row g-2 mb-3">
-      <div class="col-md-4">
-        <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por cliente...">
+      <div class="col-lg-3 col-md-6">
+        <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por nº, cliente ou placa...">
       </div>
-      <div class="col-md-3">
+      <div class="col-lg-2 col-md-6">
         <select name="status" class="form-select">
           <option value="">Todos os status</option>
           {% for val, label in status_choices %}
             <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
+      </div>
+      <div class="col-lg-2 col-6">
+        <div class="input-group">
+          <span class="input-group-text">De</span>
+          <input type="date" name="de" value="{{ data_de }}" class="form-control" title="Criados a partir de">
+        </div>
+      </div>
+      <div class="col-lg-2 col-6">
+        <div class="input-group">
+          <span class="input-group-text">Até</span>
+          <input type="date" name="ate" value="{{ data_ate }}" class="form-control" title="Criados até">
+        </div>
       </div>
       <div class="col-auto d-flex gap-2">
         <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i> Filtrar</button>
@@ -137,13 +149,13 @@
     <nav><ul class="pagination pagination-sm justify-content-center">
       {% if page_obj.has_previous %}
         <li class="page-item">
-          <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if aguardando_os %}&aguardando_os={{ aguardando_os }}{% endif %}">«</a>
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filtros_querystring %}&{{ filtros_querystring }}{% endif %}">«</a>
         </li>
       {% endif %}
       <li class="page-item active"><a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a></li>
       {% if page_obj.has_next %}
         <li class="page-item">
-          <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if aguardando_os %}&aguardando_os={{ aguardando_os }}{% endif %}">»</a>
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filtros_querystring %}&{{ filtros_querystring }}{% endif %}">»</a>
         </li>
       {% endif %}
     </ul></nav>

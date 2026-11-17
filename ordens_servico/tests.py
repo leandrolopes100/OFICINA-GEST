@@ -316,3 +316,81 @@ class PreviaDoLinkTests(BaseOrdemTestCase):
         self.assertIn('https://testserver/static/og-orcamento.png', conteudos)
         for dado in ('ABC1D23', '260', 'João'):
             self.assertNotIn(dado, conteudos)
+
+
+class FiltroListaOrdensTests(BaseOrdemTestCase):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.usuario)
+        outro_cliente = Cliente.objects.create(nome='Maria Souza', cpf_cnpj='111.444.777-35')
+        outro_veiculo = Veiculo.objects.create(
+            cliente=outro_cliente, marca=self.veiculo.marca, modelo=self.veiculo.modelo,
+            ano_fabricacao=2019, ano_modelo=2019, cor='Preto', placa='XYZ9876',
+        )
+        self.os_outubro = self.criar_ordem(com_link=False)
+        self.os_novembro = self.criar_ordem(com_link=False)
+        self.os_maria = OrdemServico.objects.create(
+            cliente=outro_cliente, veiculo=outro_veiculo, criado_por=self.usuario,
+            status='em_andamento', defeito_relatado='Freio',
+        )
+        self.definir_abertura(self.os_outubro, 2026, 10, 15)
+        self.definir_abertura(self.os_novembro, 2026, 11, 10)
+        self.definir_abertura(self.os_maria, 2026, 11, 12)
+
+    def definir_abertura(self, ordem, ano, mes, dia, hora=12):
+        momento = timezone.make_aware(timezone.datetime(ano, mes, dia, hora, 0))
+        OrdemServico.objects.filter(pk=ordem.pk).update(data_abertura=momento)
+
+    def listar(self, **params):
+        resposta = self.client.get(reverse('ordens_servico:os_lista'), params)
+        self.assertEqual(resposta.status_code, 200)
+        return {o.pk for o in resposta.context['ordens']}
+
+    def test_periodo_filtra_pela_data_de_abertura(self):
+        self.assertEqual(
+            self.listar(de='2026-11-01', ate='2026-11-30'),
+            {self.os_novembro.pk, self.os_maria.pk},
+        )
+
+    def test_ate_inclui_o_dia_inteiro(self):
+        self.definir_abertura(self.os_novembro, 2026, 11, 10, hora=23)
+        self.assertIn(self.os_novembro.pk, self.listar(ate='2026-11-10'))
+
+    def test_so_um_dos_lados(self):
+        self.assertEqual(self.listar(de='2026-11-11'), {self.os_maria.pk})
+        self.assertEqual(self.listar(ate='2026-10-31'), {self.os_outubro.pk})
+
+    def test_periodo_invertido_e_desinvertido(self):
+        self.assertEqual(
+            self.listar(de='2026-11-30', ate='2026-11-01'),
+            {self.os_novembro.pk, self.os_maria.pk},
+        )
+
+    def test_data_invalida_e_ignorada(self):
+        self.assertEqual(len(self.listar(de='31/02/2026', ate='lixo')), 3)
+
+    def test_busca_por_placa_com_ou_sem_hifen(self):
+        esperado = {self.os_maria.pk}
+        self.assertEqual(self.listar(q='XYZ9876'), esperado)
+        self.assertEqual(self.listar(q='xyz-9876'), esperado)
+
+    def test_busca_por_numero_com_prefixo(self):
+        self.assertEqual(self.listar(q=f'OS-{self.os_outubro.numero}'), {self.os_outubro.pk})
+
+    def test_periodo_combinado_com_busca_e_status(self):
+        OrdemServico.objects.filter(pk=self.os_outubro.pk).update(status='entregue')
+        self.assertEqual(
+            self.listar(q='joão', status='em_andamento', de='2026-10-01', ate='2026-11-30'),
+            {self.os_novembro.pk},
+        )
+
+    def test_paginacao_preserva_filtros(self):
+        resposta = self.client.get(
+            reverse('ordens_servico:os_lista'),
+            {'q': 'João & cia', 'de': '2026-11-01', 'sem_pagamento': '1', 'page': '1'},
+        )
+        querystring = resposta.context['filtros_querystring']
+        self.assertIn('de=2026-11-01', querystring)
+        self.assertIn('sem_pagamento=1', querystring)
+        self.assertIn('q=Jo%C3%A3o+%26+cia', querystring)
+        self.assertNotIn('page=', querystring)

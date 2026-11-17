@@ -2,7 +2,7 @@ import json
 
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Exists, OuterRef
+from django.db.models import Exists, OuterRef, Q
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy, reverse
@@ -19,7 +19,7 @@ from .whatsapp import (
     link_whatsapp_orcamento, motivo_bloqueio_envio, motivo_sem_whatsapp, url_publica_orcamento,
 )
 from core.mixins import RoleRequiredMixin
-from core.utils import registrar_historico
+from core.utils import periodo_do_request, registrar_historico
 from core.whatsapp import formatar_telefone_exibicao
 
 _CACHE_KEY_TIPOS = 'lookup_tipos_servico_json_v1'
@@ -68,13 +68,22 @@ class OrcamentoListView(LoginRequiredMixin, ListView):
         )
 
         status = self.request.GET.get('status', '')
-        q      = self.request.GET.get('q', '')
+        q      = self.request.GET.get('q', '').strip()
         aguardando_os = self.request.GET.get('aguardando_os', '')
+        de, ate = periodo_do_request(self.request)
 
         if status:
             qs = qs.filter(status=status)
         if q:
-            qs = qs.filter(cliente__nome__icontains=q)
+            termo_codigo = q.upper().removeprefix('ORC-').replace('-', '').replace(' ', '')
+            filtro = Q(cliente__nome__icontains=q)
+            if termo_codigo:
+                filtro |= Q(numero__icontains=termo_codigo) | Q(veiculo__placa__icontains=termo_codigo)
+            qs = qs.filter(filtro)
+        if de:
+            qs = qs.filter(data_criacao__date__gte=de)
+        if ate:
+            qs = qs.filter(data_criacao__date__lte=ate)
         if aguardando_os in ('1', 'cliente'):
             qs = qs.filter(status='aprovado', tem_os=False)
         if aguardando_os == 'cliente':
@@ -88,8 +97,14 @@ class OrcamentoListView(LoginRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         ctx['status_choices']  = Orcamento.STATUS_CHOICES
         ctx['status_filter']   = self.request.GET.get('status', '')
-        ctx['q']               = self.request.GET.get('q', '')
+        ctx['q']               = self.request.GET.get('q', '').strip()
         ctx['aguardando_os']   = self.request.GET.get('aguardando_os', '')
+        de, ate = periodo_do_request(self.request)
+        ctx['data_de']  = de.isoformat() if de else ''
+        ctx['data_ate'] = ate.isoformat() if ate else ''
+        filtros = self.request.GET.copy()
+        filtros.pop('page', None)
+        ctx['filtros_querystring'] = filtros.urlencode()
 
         # Contador global (independe dos filtros ativos) para o card de alerta
         ctx['pendentes_os'] = (

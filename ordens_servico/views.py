@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.db.models import Q, Exists, OuterRef
-from core.utils import calcular_taxa, registrar_historico
+from core.utils import calcular_taxa, periodo_do_request, registrar_historico
 
 from core.whatsapp import formatar_telefone_exibicao, motivo_sem_whatsapp
 from .models import OrdemServico, ItemOSServico, ItemOSPeca
@@ -92,13 +92,18 @@ class OrdemServicoListView(LoginRequiredMixin, ListView):
         q             = self.request.GET.get('q', '').strip()
         status        = self.request.GET.get('status', '')
         sem_pagamento = self.request.GET.get('sem_pagamento', '')
+        de, ate = periodo_do_request(self.request)
 
         if q:
-            qs = qs.filter(
-                Q(numero__icontains=q) |
-                Q(cliente__nome__icontains=q) |
-                Q(veiculo__placa__icontains=q)
-            )
+            termo_codigo = q.upper().removeprefix('OS-').replace('-', '').replace(' ', '')
+            filtro = Q(cliente__nome__icontains=q)
+            if termo_codigo:
+                filtro |= Q(numero__icontains=termo_codigo) | Q(veiculo__placa__icontains=termo_codigo)
+            qs = qs.filter(filtro)
+        if de:
+            qs = qs.filter(data_abertura__date__gte=de)
+        if ate:
+            qs = qs.filter(data_abertura__date__lte=ate)
         if status == 'abertas':
             qs = qs.filter(status__in=_STATUS_ATIVOS)
         elif status:
@@ -119,6 +124,12 @@ class OrdemServicoListView(LoginRequiredMixin, ListView):
         ctx['status_atual']            = self.request.GET.get('status', '')
         ctx['busca']                   = self.request.GET.get('q', '')
         ctx['sem_pagamento_filtro']    = self.request.GET.get('sem_pagamento', '')
+        de, ate = periodo_do_request(self.request)
+        ctx['data_de']  = de.isoformat() if de else ''
+        ctx['data_ate'] = ate.isoformat() if ate else ''
+        filtros = self.request.GET.copy()
+        filtros.pop('page', None)
+        ctx['filtros_querystring'] = filtros.urlencode()
         ctx['hoje']                    = hoje
         ctx['status_ativos']           = _STATUS_ATIVOS
         ctx['statuses_requer_pagamento'] = _STATUS_REQUER_PAGAMENTO

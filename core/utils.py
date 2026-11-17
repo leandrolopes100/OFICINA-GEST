@@ -19,6 +19,22 @@ def parse_mes_ano(request, hoje):
     return mes, ano
 
 
+def periodo_do_request(request):
+    """Lê `de` e `ate` (AAAA-MM-DD) da query string; datas inválidas viram None e um período invertido é desinvertido."""
+    from django.utils.dateparse import parse_date
+
+    def _ler(nome):
+        try:
+            return parse_date(request.GET.get(nome, '').strip())
+        except ValueError:
+            return None
+
+    de, ate = _ler('de'), _ler('ate')
+    if de and ate and de > ate:
+        de, ate = ate, de
+    return de, ate
+
+
 def calcular_taxa(valor, forma_pagamento):
     """Calcula o valor monetário da taxa de uma forma de pagamento."""
     if forma_pagamento and forma_pagamento.taxa > 0:

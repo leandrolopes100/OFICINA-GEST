@@ -443,3 +443,82 @@ class IpDoClienteTests(BaseOrcamentoTestCase):
 
     def test_valor_invalido_vira_nulo(self):
         self.assertIsNone(self.ip_registrado(HTTP_X_FORWARDED_FOR='nao-e-ip'))
+
+
+class FiltroListaOrcamentosTests(BaseOrcamentoTestCase):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.usuario)
+        marca = Marca.objects.get(nome='Volkswagen')
+        outro_cliente = Cliente.objects.create(nome='Maria Souza', cpf_cnpj='111.444.777-35')
+        outro_veiculo = Veiculo.objects.create(
+            cliente=outro_cliente, marca=marca, modelo=Modelo.objects.get(nome='Gol'),
+            ano_fabricacao=2019, ano_modelo=2019, cor='Preto', placa='XYZ9876',
+        )
+        self.orc_outubro = self.criar_orcamento(com_link=False)
+        self.orc_novembro = self.criar_orcamento(com_link=False)
+        self.orc_maria = Orcamento.objects.create(
+            cliente=outro_cliente, veiculo=outro_veiculo, criado_por=self.usuario,
+            data_validade=timezone.localdate(),
+        )
+        self.definir_criacao(self.orc_outubro, 2026, 10, 15)
+        self.definir_criacao(self.orc_novembro, 2026, 11, 10)
+        self.definir_criacao(self.orc_maria, 2026, 11, 12)
+
+    def definir_criacao(self, orcamento, ano, mes, dia, hora=12):
+        momento = timezone.make_aware(timezone.datetime(ano, mes, dia, hora, 0))
+        Orcamento.objects.filter(pk=orcamento.pk).update(data_criacao=momento)
+
+    def listar(self, **params):
+        resposta = self.client.get(reverse('orcamentos:list'), params)
+        self.assertEqual(resposta.status_code, 200)
+        return {o.pk for o in resposta.context['orcamentos']}
+
+    def test_periodo_filtra_pela_data_de_criacao(self):
+        self.assertEqual(
+            self.listar(de='2026-11-01', ate='2026-11-30'),
+            {self.orc_novembro.pk, self.orc_maria.pk},
+        )
+
+    def test_ate_inclui_o_dia_inteiro(self):
+        self.definir_criacao(self.orc_novembro, 2026, 11, 10, hora=23)
+        self.assertIn(self.orc_novembro.pk, self.listar(ate='2026-11-10'))
+
+    def test_so_um_dos_lados(self):
+        self.assertEqual(self.listar(de='2026-11-11'), {self.orc_maria.pk})
+        self.assertEqual(self.listar(ate='2026-10-31'), {self.orc_outubro.pk})
+
+    def test_periodo_invertido_e_desinvertido(self):
+        self.assertEqual(
+            self.listar(de='2026-11-30', ate='2026-11-01'),
+            {self.orc_novembro.pk, self.orc_maria.pk},
+        )
+
+    def test_data_invalida_e_ignorada(self):
+        self.assertEqual(len(self.listar(de='31/02/2026', ate='lixo')), 3)
+
+    def test_busca_por_placa_com_ou_sem_hifen(self):
+        esperado = {self.orc_maria.pk}
+        self.assertEqual(self.listar(q='XYZ9876'), esperado)
+        self.assertEqual(self.listar(q='xyz-9876'), esperado)
+
+    def test_busca_por_numero_com_prefixo(self):
+        self.assertEqual(self.listar(q=f'ORC-{self.orc_outubro.numero}'), {self.orc_outubro.pk})
+
+    def test_busca_combinada_com_periodo(self):
+        self.assertEqual(
+            self.listar(q='João', de='2026-11-01', ate='2026-11-30'),
+            {self.orc_novembro.pk},
+        )
+
+    def test_paginacao_preserva_filtros(self):
+        for _ in range(20):
+            novo = self.criar_orcamento(com_link=False)
+            self.definir_criacao(novo, 2026, 11, 5)
+        resposta = self.client.get(
+            reverse('orcamentos:list'), {'q': 'João & cia', 'de': '2026-11-01', 'page': '1'},
+        )
+        querystring = resposta.context['filtros_querystring']
+        self.assertIn('de=2026-11-01', querystring)
+        self.assertIn('q=Jo%C3%A3o+%26+cia', querystring)
+        self.assertNotIn('page=', querystring)
