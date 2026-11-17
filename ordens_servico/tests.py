@@ -288,3 +288,31 @@ class PrecoNasListasDeSelecaoTests(BaseOrdemTestCase):
                 self.assertEqual(resposta.status_code, 200)
                 self.assertContains(resposta, 'window.select2OpcaoComPreco', count=1)
                 self.assertContains(resposta, 'templateResult: select2OpcaoComPreco(')
+
+
+class PreviaDoLinkTests(BaseOrdemTestCase):
+    def tags_og(self, html):
+        import re
+        return re.findall(r'<meta property="og:[^"]+" content="([^"]*)"', html)
+
+    def test_acompanhamento_tem_previa_sem_dados_do_cliente(self):
+        ordem = self.criar_ordem()
+        html = self.client.get(self.url_publica(ordem), secure=True).content.decode()
+        conteudos = ' | '.join(self.tags_og(html))
+        self.assertIn(f'Acompanhamento OS-{ordem.numero}', conteudos)
+        self.assertIn('https://testserver/static/og-acompanhamento.png', conteudos)
+        for dado in ('ABC1D23', '260', 'João', 'Barulho'):
+            self.assertNotIn(dado, conteudos)
+
+    def test_orcamento_tem_previa_sem_dados_do_cliente(self):
+        from orcamentos.tests import BaseOrcamentoTestCase
+        caso = BaseOrcamentoTestCase
+        orcamento = caso.criar_orcamento(self)
+        html = self.client.get(
+            reverse('orcamento_publico:detalhe', kwargs={'token': orcamento.token_publico}), secure=True,
+        ).content.decode()
+        conteudos = ' | '.join(self.tags_og(html))
+        self.assertIn(f'Orçamento ORC-{orcamento.numero}', conteudos)
+        self.assertIn('https://testserver/static/og-orcamento.png', conteudos)
+        for dado in ('ABC1D23', '260', 'João'):
+            self.assertNotIn(dado, conteudos)

@@ -1,6 +1,18 @@
 {% extends 'orcamentos/publico/base_publico.html' %}
+{% load static %}
 {% load oficina_tags %}
 {% block title %}Acompanhamento OS-{{ ordem.numero }} — {{ oficina.nome }}{% endblock %}
+{% block og %}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="R2RENT · Oficina Gest">
+<meta property="og:title" content="Acompanhamento OS-{{ ordem.numero }} · R2RENT Oficina">
+<meta property="og:description" content="Veja a etapa do serviço, a previsão de entrega e os valores pelo celular.">
+<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'og-acompanhamento.png' %}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Acompanhe o serviço do seu veículo">
+<meta name="twitter:card" content="summary_large_image">
+{% endblock %}
 {% block extra_css %}
 <style>
   .etapas { list-style: none; margin: 0; padding: 0; }
