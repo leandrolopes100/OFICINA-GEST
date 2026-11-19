@@ -25,6 +25,7 @@ class UserListView(RoleRequiredMixin, ListView):
     context_object_name = 'users'
     allowed_roles = ['admin']
     paginate_by = 20
+    ordering = ['username']
 
 
 class UserCreateView(RoleRequiredMixin, CreateView):

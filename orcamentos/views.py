@@ -102,9 +102,6 @@ class OrcamentoListView(LoginRequiredMixin, ListView):
         de, ate = periodo_do_request(self.request)
         ctx['data_de']  = de.isoformat() if de else ''
         ctx['data_ate'] = ate.isoformat() if ate else ''
-        filtros = self.request.GET.copy()
-        filtros.pop('page', None)
-        ctx['filtros_querystring'] = filtros.urlencode()
 
         # Contador global (independe dos filtros ativos) para o card de alerta
         ctx['pendentes_os'] = (

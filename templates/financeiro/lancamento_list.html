@@ -143,23 +143,7 @@
       </table>
     </div>
 
-    {% if is_paginated %}
-    <nav>
-      <ul class="pagination pagination-sm justify-content-center">
-        {% if page_obj.has_previous %}
-        <li class="page-item">
-          <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.tipo %}&tipo={{ request.GET.tipo }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">«</a>
-        </li>
-        {% endif %}
-        <li class="page-item active"><a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a></li>
-        {% if page_obj.has_next %}
-        <li class="page-item">
-          <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.tipo %}&tipo={{ request.GET.tipo }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">»</a>
-        </li>
-        {% endif %}
-      </ul>
-    </nav>
-    {% endif %}
+    {% include 'includes/_paginacao.html' with rotulo='lançamentos' %}
   </div>
 </div>
 {# ══ Modal — Confirmar Pagamento ══ #}

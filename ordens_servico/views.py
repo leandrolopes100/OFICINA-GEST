@@ -127,9 +127,6 @@ class OrdemServicoListView(LoginRequiredMixin, ListView):
         de, ate = periodo_do_request(self.request)
         ctx['data_de']  = de.isoformat() if de else ''
         ctx['data_ate'] = ate.isoformat() if ate else ''
-        filtros = self.request.GET.copy()
-        filtros.pop('page', None)
-        ctx['filtros_querystring'] = filtros.urlencode()
         ctx['hoje']                    = hoje
         ctx['status_ativos']           = _STATUS_ATIVOS
         ctx['statuses_requer_pagamento'] = _STATUS_REQUER_PAGAMENTO

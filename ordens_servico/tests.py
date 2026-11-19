@@ -385,12 +385,10 @@ class FiltroListaOrdensTests(BaseOrdemTestCase):
         )
 
     def test_paginacao_preserva_filtros(self):
+        for _ in range(20):
+            nova = self.criar_ordem(com_link=False)
+            self.definir_abertura(nova, 2026, 11, 5)
         resposta = self.client.get(
-            reverse('ordens_servico:os_lista'),
-            {'q': 'João & cia', 'de': '2026-11-01', 'sem_pagamento': '1', 'page': '1'},
+            reverse('ordens_servico:os_lista'), {'q': 'joão', 'de': '2026-11-01', 'status': 'abertas'},
         )
-        querystring = resposta.context['filtros_querystring']
-        self.assertIn('de=2026-11-01', querystring)
-        self.assertIn('sem_pagamento=1', querystring)
-        self.assertIn('q=Jo%C3%A3o+%26+cia', querystring)
-        self.assertNotIn('page=', querystring)
+        self.assertContains(resposta, 'href="?q=jo%C3%A3o&amp;de=2026-11-01&amp;status=abertas&amp;page=2"')

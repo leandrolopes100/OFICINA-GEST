@@ -151,32 +151,7 @@
       </table>
     </div>
 
-    {# ── Paginação — preserva todos os filtros ativos ── #}
-    {% if is_paginated %}
-    <nav>
-      <ul class="pagination pagination-sm justify-content-center">
-        {% if page_obj.has_previous %}
-        <li class="page-item">
-          <a class="page-link"
-             href="?page={{ page_obj.previous_page_number }}&status={{ status_filtro }}{% if q %}&q={{ q }}{% endif %}{% if categoria_filtro %}&categoria={{ categoria_filtro }}{% endif %}{% if alerta_filtro %}&alerta={{ alerta_filtro }}{% endif %}">
-            «
-          </a>
-        </li>
-        {% endif %}
-        <li class="page-item active">
-          <a class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</a>
-        </li>
-        {% if page_obj.has_next %}
-        <li class="page-item">
-          <a class="page-link"
-             href="?page={{ page_obj.next_page_number }}&status={{ status_filtro }}{% if q %}&q={{ q }}{% endif %}{% if categoria_filtro %}&categoria={{ categoria_filtro }}{% endif %}{% if alerta_filtro %}&alerta={{ alerta_filtro }}{% endif %}">
-            »
-          </a>
-        </li>
-        {% endif %}
-      </ul>
-    </nav>
-    {% endif %}
+    {% include 'includes/_paginacao.html' with rotulo='produtos' %}
 
   </div>
 </div>

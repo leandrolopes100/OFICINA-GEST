@@ -19,7 +19,7 @@ class LancamentoListView(RoleRequiredMixin, ListView):
     model = Lancamento
     template_name = 'financeiro/lancamento_list.html'
     context_object_name = 'lancamentos'
-    paginate_by = 25
+    paginate_by = 20
     allowed_roles = ['admin', 'recepcionista']
 
     def get_queryset(self):

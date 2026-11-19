@@ -516,9 +516,6 @@ class FiltroListaOrcamentosTests(BaseOrcamentoTestCase):
             novo = self.criar_orcamento(com_link=False)
             self.definir_criacao(novo, 2026, 11, 5)
         resposta = self.client.get(
-            reverse('orcamentos:list'), {'q': 'João & cia', 'de': '2026-11-01', 'page': '1'},
+            reverse('orcamentos:list'), {'q': 'João', 'de': '2026-11-01', 'status': 'enviado'},
         )
-        querystring = resposta.context['filtros_querystring']
-        self.assertIn('de=2026-11-01', querystring)
-        self.assertIn('q=Jo%C3%A3o+%26+cia', querystring)
-        self.assertNotIn('page=', querystring)
+        self.assertContains(resposta, 'href="?q=Jo%C3%A3o&amp;de=2026-11-01&amp;status=enviado&amp;page=2"')

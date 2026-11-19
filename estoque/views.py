@@ -18,7 +18,7 @@ class ProdutoListView(LoginRequiredMixin, ListView):
     model = Produto
     template_name = 'estoque/produto_list.html'
     context_object_name = 'produtos'
-    paginate_by = 25
+    paginate_by = 20
 
     def get_queryset(self):
         status = self.request.GET.get('status', 'ativos')

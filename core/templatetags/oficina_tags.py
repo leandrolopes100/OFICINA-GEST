@@ -64,3 +64,10 @@ def historico_badge(tipo):
         'outro':     'secondary',
     }
     return badges.get(tipo, 'secondary')
+
+
+@register.simple_tag(takes_context=True)
+def url_pagina(context, numero):
+    parametros = context['request'].GET.copy()
+    parametros['page'] = numero
+    return '?' + parametros.urlencode()

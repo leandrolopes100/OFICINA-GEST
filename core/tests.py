@@ -83,3 +83,20 @@ class VersaoSistemaTests(TestCase):
         with mock.patch('core.versao.subprocess.run', side_effect=FileNotFoundError):
             resposta = self.client.get(reverse('relatorios:dashboard'))
         self.assertNotContains(resposta, 'Versão de')
+
+
+class ListagensPaginadasTests(TestCase):
+    URLS = [
+        '/clientes/', '/veiculos/', '/veiculos/marcas/', '/orcamentos/', '/ordens-servico/',
+        '/estoque/', '/estoque/movimentacoes/', '/estoque/fornecedores/',
+        '/financeiro/', '/financeiro/formas-pagamento/', '/accounts/usuarios/',
+    ]
+
+    def test_todas_as_listagens_abrem(self):
+        from accounts.models import CustomUser
+        usuario = CustomUser.objects.create_user(username='admin', password='senha-forte-123', role='admin')
+        self.client.force_login(usuario)
+        for url in self.URLS:
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 200)
+                self.assertEqual(self.client.get(url, {'page': 1}).status_code, 200)
