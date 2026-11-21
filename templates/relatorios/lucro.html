@@ -233,7 +233,7 @@
         </tr>
       </thead>
       <tbody>
-        {% for linha in lucro.linhas %}
+        {% for linha in page_obj %}
         <tr class="{% if linha.lucro < 0 %}table-danger{% endif %}">
           <td>
             <a href="{% url 'ordens_servico:os_detalhe' linha.ordem.pk %}" class="fw-semibold text-decoration-none">OS-{{ linha.ordem.numero }}</a>
@@ -255,7 +255,7 @@
       {% if lucro.linhas %}
       <tfoot>
         <tr>
-          <td colspan="2">Total das OS</td>
+          <td colspan="2">Total das OS{% if is_paginated %} <span class="fw-normal text-muted small">(todas as páginas)</span>{% endif %}</td>
           <td class="valor text-end">{{ lucro.receita_os|currency }}</td>
           <td class="valor text-end text-danger">{{ lucro.custo_pecas|currency }}</td>
           <td class="valor text-end text-danger">{{ lucro.taxas_os|currency }}</td>
@@ -265,6 +265,9 @@
       </tfoot>
       {% endif %}
     </table>
+  </div>
+  <div class="nao-imprimir">
+    {% include 'includes/_paginacao.html' with rotulo='OS' classe='card-footer' %}
   </div>
 </div>
 {% endblock %}

@@ -275,3 +275,46 @@ class ExportarLucroExcelTests(CenarioLucroTestCase):
         self.client.force_login(self.admin)
         resposta = self.client.get(reverse('relatorios:lucro'), {'mes': 10, 'ano': 2026, 'ordem': 'lucro'})
         self.assertContains(resposta, f'{reverse("relatorios:lucro_excel")}?mes=10&ano=2026&ordem=lucro')
+
+
+class PaginacaoLucroPorOSTests(CenarioLucroTestCase):
+    def setUp(self):
+        self.ordens = []
+        for _ in range(25):
+            ordem = self.criar_os()
+            self.lancar('receita', '260.00', ordem=ordem)
+            self.ordens.append(ordem)
+        self.client.force_login(self.admin)
+
+    def pagina(self, **params):
+        return self.client.get(reverse('relatorios:lucro'), {'mes': 10, 'ano': 2026, 'ordem': 'data', **params})
+
+    def test_vinte_por_pagina_e_total_de_todas_as_paginas(self):
+        primeira = self.pagina()
+        self.assertEqual(len(primeira.context['page_obj']), 20)
+        self.assertContains(primeira, 'Mostrando 1–20 de 25 OS')
+        self.assertContains(primeira, '(todas as páginas)')
+        self.assertContains(primeira, '6.500,00')
+        segunda = self.pagina(page=2)
+        self.assertEqual(len(segunda.context['page_obj']), 5)
+        self.assertContains(segunda, f'OS-{self.ordens[-1].numero}')
+        self.assertNotContains(segunda, f'>OS-{self.ordens[0].numero}<')
+
+    def test_links_de_pagina_mantem_mes_ano_e_ordem(self):
+        self.assertContains(self.pagina(), 'href="?mes=10&amp;ano=2026&amp;ordem=data&amp;page=2"')
+
+    def test_pagina_invalida_nao_quebra(self):
+        self.assertEqual(self.pagina(page='abc').context['page_obj'].number, 1)
+        self.assertEqual(self.pagina(page=99).context['page_obj'].number, 2)
+
+    def test_poucas_os_nao_mostram_paginacao(self):
+        resposta = self.client.get(reverse('relatorios:lucro'), {'mes': 1, 'ano': 2020})
+        self.assertNotContains(resposta, 'aria-label="Paginação"')
+
+    def test_excel_continua_com_todas_as_os(self):
+        from io import BytesIO
+        from openpyxl import load_workbook
+        resposta = self.client.get(reverse('relatorios:lucro_excel'), {'mes': 10, 'ano': 2026, 'page': 2})
+        aba = load_workbook(BytesIO(resposta.content))['Lucro por OS']
+        self.assertEqual(aba['A31'].value, 'Total das OS')
+        self.assertEqual(aba['D31'].value, '=SUM(D6:D30)')

@@ -1,6 +1,7 @@
 import calendar
 from datetime import date, timedelta
 
+from django.core.paginator import Paginator
 from django.views import View
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -359,12 +360,16 @@ class LucroDoMesMixin(RoleRequiredMixin):
 
 class RelatorioLucroView(LucroDoMesMixin, TemplateView):
     template_name = 'relatorios/lucro.html'
+    paginate_by = 20
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx.update(self.dados_do_lucro())
         mes, ano = ctx['mes'], ctx['ano']
+        page_obj = Paginator(ctx['lucro'].linhas, self.paginate_by).get_page(self.request.GET.get('page'))
         ctx.update({
+            'page_obj': page_obj,
+            'is_paginated': page_obj.has_other_pages(),
             'prev_mes': mes - 1 if mes > 1 else 12,
             'prev_ano': ano if mes > 1 else ano - 1,
             'next_mes': mes + 1 if mes < 12 else 1,
