@@ -62,6 +62,11 @@ class Lancamento(models.Model):
         verbose_name = 'Lançamento'
         verbose_name_plural = 'Lançamentos'
         ordering = ['-data_competencia']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['ordem_servico'], condition=models.Q(tipo='receita'), name='uma_receita_por_os',
+            ),
+        ]
         indexes = [
             models.Index(fields=['tipo', 'status'], name='lancamento_tipo_status_idx'),
             models.Index(fields=['data_pagamento', 'tipo'], name='lancamento_pgto_tipo_idx'),

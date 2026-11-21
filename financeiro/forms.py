@@ -47,3 +47,9 @@ class LancamentoForm(forms.ModelForm):
             'observacoes',
             Submit('submit', 'Salvar Lançamento', css_class='btn btn-primary'),
         )
+
+    def clean(self):
+        dados = super().clean()
+        if dados.get('status') == 'pago' and not dados.get('data_pagamento'):
+            self.add_error('data_pagamento', 'Informe a data de pagamento para um lançamento pago.')
+        return dados

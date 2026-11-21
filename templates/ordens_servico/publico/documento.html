@@ -1,0 +1,56 @@
+{% extends 'orcamentos/publico/base_publico.html' %}
+{% load static %}
+{% load oficina_tags %}
+{% block title %}Ordem de serviço OS-{{ ordem.numero }} — {{ oficina.nome }}{% endblock %}
+{% block og %}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="R2RENT · Oficina Gest">
+<meta property="og:title" content="Ordem de serviço OS-{{ ordem.numero }} · R2RENT Oficina">
+<meta property="og:description" content="Confira os serviços, as peças e o valor total, e abra ou baixe o PDF pelo celular.">
+<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'og-os.png' %}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Sua ordem de serviço está disponível">
+<meta name="twitter:card" content="summary_large_image">
+{% endblock %}
+{% block content %}
+<div class="bloco">
+  <div class="d-flex justify-content-between align-items-start gap-2">
+    <div>
+      <div class="bloco-titulo mb-1">Ordem de serviço</div>
+      <div class="h5 mb-0 fw-bold">OS-{{ ordem.numero }}</div>
+    </div>
+    <div class="text-end small text-muted">
+      Entrada em {{ ordem.data_abertura|date:"d/m/Y" }}<br>
+      <strong class="text-dark">{{ situacao }}</strong>
+    </div>
+  </div>
+  <hr class="my-3">
+  <div class="small">
+    <div class="text-muted">Veículo</div>
+    <div class="fw-semibold">{{ ordem.veiculo.marca.nome }} {{ ordem.veiculo.modelo.nome }} · {{ ordem.veiculo.placa }}</div>
+  </div>
+  <div class="total-linha total-final"><span>Total</span><span>{{ ordem.total|currency }}</span></div>
+  {% if ordem.pode_editar %}<div class="text-muted small mt-2">Valores parciais: podem mudar até a conclusão do serviço.</div>{% endif %}
+</div>
+
+<div class="d-grid gap-2 mb-3">
+  <a href="{% url 'acompanhamento_publico:pdf' ordem.token_publico %}" class="btn btn-primary btn-lg">
+    <i class="bi bi-file-earmark-pdf"></i> Abrir PDF da OS
+  </a>
+  <a href="{% url 'acompanhamento_publico:pdf' ordem.token_publico %}?baixar=1" class="btn btn-outline-primary btn-lg" download>
+    <i class="bi bi-download"></i> Baixar PDF
+  </a>
+  <a href="{% url 'acompanhamento_publico:detalhe' ordem.token_publico %}" class="btn btn-outline-secondary">
+    <i class="bi bi-list-check"></i> Ver detalhes e etapas do serviço
+  </a>
+</div>
+
+{% if whatsapp_oficina_url %}
+<div class="d-grid">
+  <a href="{{ whatsapp_oficina_url }}" class="btn btn-success btn-lg" rel="noopener">
+    <i class="bi bi-whatsapp"></i> Falar com a oficina
+  </a>
+</div>
+{% endif %}
+{% endblock %}

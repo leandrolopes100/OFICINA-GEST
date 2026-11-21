@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+{% load oficina_tags %}
+{% block title %}Lucratividade — {{ nome_mes }}/{{ ano }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .nav-mes .btn { min-width: 34px; }
+  .dre-linha { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: .7rem 1.25rem; border-bottom: 1px solid #f1f3f5; color: #343a40; }
+  .dre-linha:last-child { border-bottom: none; }
+  .dre-valor { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .dre-sinal { display: inline-block; width: 1rem; color: #dc3545; font-weight: 700; }
+  .dre-linha.recuo { padding-left: 2.5rem; font-size: .88rem; color: #6c757d; }
+  .dre-linha.subtotal { background: #f8f9fa; font-weight: 700; color: #212529; border-top: 1px solid #e9ecef; }
+  .dre-margem { margin-left: .5rem; font-size: .75rem; font-weight: 500; color: #8a919b; }
+  .dre-linha.final { font-size: 1.1rem; font-weight: 700; padding-top: .95rem; padding-bottom: .95rem; border-radius: 0 0 .375rem .375rem; }
+  .dre-linha.final.positivo { background: rgba(25,135,84,.08); color: #146c43; }
+  .dre-linha.final.negativo { background: rgba(220,53,69,.08); color: #b02a37; }
+  .fora-valor { font-size: 1.35rem; font-weight: 700; color: #212529; font-variant-numeric: tabular-nums; }
+  .tabela-os { font-size: .9rem; }
+  .tabela-os thead th { font-size: .68rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #8a919b; background: #f8f9fa; border-bottom: 1px solid #e9ecef; white-space: nowrap; padding: .7rem 1rem; }
+  .tabela-os td { padding: .8rem 1rem; }
+  .tabela-os th:first-child, .tabela-os td:first-child { padding-left: 1.25rem; }
+  .tabela-os th:last-child, .tabela-os td:last-child { padding-right: 1.25rem; }
+  .tabela-os .valor { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .tabela-os .badge { font-size: .65rem; font-weight: 600; vertical-align: middle; }
+  .tabela-os tfoot td { background: #f8f9fa; font-weight: 700; border-top: 2px solid #dee2e6; border-bottom: none; }
+  .composicao-barra { display: flex; gap: 2px; height: 28px; }
+  .composicao-parte { flex: var(--peso) 1 0; min-width: 4px; border-radius: 4px; background: var(--cor); display: flex; align-items: center; padding: 0 .5rem; font-size: .75rem; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; }
+  .composicao-parte.texto-escuro { color: #212529; }
+  .composicao-legenda { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; margin-top: .9rem; font-size: .82rem; color: #495057; }
+  .composicao-legenda .amostra { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--cor); margin-right: .4rem; vertical-align: baseline; }
+  .composicao-legenda strong { color: #212529; }
+  .cabecalho-impressao { display: none; }
+  @media screen and (max-width: 575px) {
+    .kpi-strip .kpi-value { font-size: 1.2rem !important; white-space: nowrap; }
+    .kpi-strip .kpi-col { padding: 1rem .9rem .9rem; }
+    .dre-margem { display: block; margin-left: 0; margin-top: .15rem; }
+  }
+  @media print {
+    @page { size: A4; margin: 12mm; }
+    body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .sidebar, .sidebar-backdrop, .navbar-mobile, .navbar-top, .faixa-versao, .nao-imprimir { display: none !important; }
+    .main-content { margin-left: 0 !important; padding: 0 !important; }
+    .cabecalho-impressao { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1a1a2e; padding-bottom: .5rem; margin-bottom: 1rem; }
+    .card, .kpi-strip { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
+    .kpi-strip, .card-composicao, .card-fora, .alert, .dre-linha { break-inside: avoid; }
+    .h-100 { height: auto !important; }
+    .row > [class*="col-lg-"] { flex: 0 0 100%; max-width: 100%; }
+    .table-responsive { overflow: visible !important; }
+    a { color: inherit !important; text-decoration: none !important; }
+    tr { break-inside: avoid; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cabecalho-impressao">
+  <div>
+    <div class="marca-sistema" style="color:#1a1a2e">OFICINA<span class="marca-destaque">GEST</span></div>
+    <div class="fw-bold fs-5 mt-1">Relatório de Lucratividade — {{ nome_mes }}/{{ ano }}</div>
+  </div>
+  <div class="text-muted small text-end">Emitido em {{ emitido_em|date:"d/m/Y \à\s H:i" }}<br>por {{ user.get_full_name|default:user.username }}</div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 nao-imprimir">
+  <h4 class="mb-0 fw-bold">
+    <i class="bi bi-graph-up-arrow text-primary"></i> Lucratividade
+  </h4>
+  <div class="d-flex align-items-center gap-2 nav-mes">
+    <a href="{% url 'relatorios:lucro_excel' %}?mes={{ mes }}&ano={{ ano }}&ordem={{ ordem }}" class="btn btn-outline-success btn-sm">
+      <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+    </a>
+    <button type="button" class="btn btn-outline-primary btn-sm me-2" onclick="window.print()">
+      <i class="bi bi-printer"></i> Imprimir / PDF
+    </button>
+    <a href="?mes={{ prev_mes }}&ano={{ prev_ano }}&ordem={{ ordem }}" class="btn btn-outline-secondary btn-sm" aria-label="Mês anterior"><i class="bi bi-chevron-left"></i></a>
+    <span class="fw-semibold px-1">{{ nome_mes }} / {{ ano }}</span>
+    <a href="?mes={{ next_mes }}&ano={{ next_ano }}&ordem={{ ordem }}" class="btn btn-outline-secondary btn-sm" aria-label="Próximo mês"><i class="bi bi-chevron-right"></i></a>
+  </div>
+</div>
+
+<div class="card kpi-strip mb-3">
+  <div class="row g-0">
+    <div class="col-6 col-md-3">
+      <div class="kpi-col" style="--kpi-cor:#0d6efd">
+        <div class="kpi-label"><i class="bi bi-cash-coin"></i> Faturamento</div>
+        <div class="kpi-value text-primary">{{ lucro.faturamento|currency }}</div>
+        <div class="kpi-sub">recebido no mês</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="kpi-col" style="--kpi-cor:#dc3545">
+        <div class="kpi-label"><i class="bi bi-box-seam"></i> Custo das Peças</div>
+        <div class="kpi-value text-danger">{{ lucro.custo_pecas|currency }}</div>
+        <div class="kpi-sub">peças usadas nas OS pagas</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="kpi-col" style="--kpi-cor:{% if lucro.lucro_bruto >= 0 %}#198754{% else %}#dc3545{% endif %}">
+        <div class="kpi-label"><i class="bi bi-graph-up"></i> Lucro Bruto</div>
+        <div class="kpi-value {% if lucro.lucro_bruto >= 0 %}text-success{% else %}text-danger{% endif %}">{{ lucro.lucro_bruto|currency }}</div>
+        <div class="kpi-sub">{% if lucro.margem_bruta is not None %}margem {{ lucro.margem_bruta|floatformat:1 }}%{% else %}—{% endif %}</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="kpi-col" style="--kpi-cor:{% if lucro.lucro_liquido >= 0 %}#198754{% else %}#dc3545{% endif %}">
+        <div class="kpi-label"><i class="bi bi-trophy"></i> Lucro Líquido</div>
+        <div class="kpi-value {% if lucro.lucro_liquido >= 0 %}text-success{% else %}text-danger{% endif %}">{{ lucro.lucro_liquido|currency }}</div>
+        <div class="kpi-sub">{% if lucro.margem_liquida is not None %}margem {{ lucro.margem_liquida|floatformat:1 }}%{% else %}após despesas da oficina{% endif %}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if composicao %}
+<div class="card mb-3 card-composicao">
+  <div class="card-header fw-semibold d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="bi bi-pie-chart"></i> Para onde foi o faturamento</span>
+    <span class="text-muted small fw-normal">de {{ lucro.faturamento|currency }} recebidos no mês</span>
+  </div>
+  <div class="card-body">
+    {% if lucro.prejuizo %}
+    <div class="alert alert-danger py-2 small mb-3">
+      <i class="bi bi-exclamation-octagon-fill"></i> <strong>Mês no prejuízo:</strong> os custos passaram o faturamento em {{ lucro.valor_prejuizo|currency }}. A barra mostra como os custos se dividem.
+    </div>
+    {% endif %}
+    <div class="composicao-barra" role="img"
+         aria-label="{% for parte in composicao %}{{ parte.nome }}: {{ parte.valor|currency }} ({{ parte.percentual|floatformat:1 }}%){% if not forloop.last %}; {% endif %}{% endfor %}">
+      {% for parte in composicao %}
+      <div class="composicao-parte{% if parte.texto_escuro %} texto-escuro{% endif %}"
+           style="--peso: {{ parte.percentual|stringformat:'s' }}; --cor: {{ parte.cor }}"
+           title="{{ parte.nome }}: {{ parte.valor|currency }} ({{ parte.percentual|floatformat:1 }}%)">
+        {% if parte.percentual >= 8 %}{{ parte.percentual|floatformat:0 }}%{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="composicao-legenda">
+      {% for parte in composicao %}
+      <span style="--cor: {{ parte.cor }}"><span class="amostra"></span>{{ parte.nome }} <strong>{{ parte.valor|currency }}</strong> <span class="text-muted">({{ parte.percentual|floatformat:1 }}%)</span></span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if lucro.qtd_receitas_sem_os or lucro.qtd_custo_estimado or lucro.qtd_abaixo_do_custo %}
+<div class="alert alert-warning small">
+  <div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle-fill"></i> Atenção ao ler os números</div>
+  <ul class="mb-0 ps-3">
+    {% if lucro.qtd_receitas_sem_os %}
+    <li>{{ lucro.qtd_receitas_sem_os }} receita{{ lucro.qtd_receitas_sem_os|pluralize }} sem OS ({{ lucro.receita_sem_os|currency }}) não {{ lucro.qtd_receitas_sem_os|pluralize:"tem,têm" }} custo de peça vinculado: o lucro dessas vendas aparece maior do que é.</li>
+    {% endif %}
+    {% if lucro.qtd_custo_estimado %}
+    <li>{{ lucro.qtd_custo_estimado }} OS com custo estimado (sem baixa de estoque registrada na época).</li>
+    {% endif %}
+    {% if lucro.qtd_abaixo_do_custo %}
+    <li class="text-danger">{{ lucro.qtd_abaixo_do_custo }} OS com peça vendida abaixo do custo.</li>
+    {% endif %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header fw-semibold"><i class="bi bi-list-ol"></i> Resultado do mês</div>
+      <div class="card-body p-0">
+        <div class="dre">
+          <div class="dre-linha"><span>Receitas de OS</span><span class="dre-valor">{{ lucro.receita_os|currency }}</span></div>
+          {% if lucro.receita_sem_os %}
+          <div class="dre-linha"><span>Receitas sem OS</span><span class="dre-valor">{{ lucro.receita_sem_os|currency }}</span></div>
+          {% endif %}
+          <div class="dre-linha subtotal"><span>Faturamento</span><span class="dre-valor">{{ lucro.faturamento|currency }}</span></div>
+          <div class="dre-linha"><span><span class="dre-sinal">−</span>Custo das peças</span><span class="dre-valor text-danger">{{ lucro.custo_pecas|currency }}</span></div>
+          <div class="dre-linha"><span><span class="dre-sinal">−</span>Taxas de cartão</span><span class="dre-valor text-danger">{{ lucro.taxas|currency }}</span></div>
+          <div class="dre-linha subtotal"><span>Lucro bruto{% if lucro.margem_bruta is not None %} <span class="dre-margem">margem {{ lucro.margem_bruta|floatformat:1 }}%</span>{% endif %}</span><span class="dre-valor">{{ lucro.lucro_bruto|currency }}</span></div>
+          <div class="dre-linha"><span><span class="dre-sinal">−</span>Despesas da oficina</span><span class="dre-valor text-danger">{{ lucro.despesas|currency }}</span></div>
+          {% for despesa in lucro.despesas_por_categoria %}
+          <div class="dre-linha recuo"><span>{{ despesa.categoria }}</span><span class="dre-valor">{{ despesa.total|currency }}</span></div>
+          {% endfor %}
+          <div class="dre-linha final {% if lucro.prejuizo %}negativo{% else %}positivo{% endif %}">
+            <span>Lucro líquido{% if lucro.margem_liquida is not None %} <span class="dre-margem">margem {{ lucro.margem_liquida|floatformat:1 }}%</span>{% endif %}</span>
+            <span class="dre-valor">{{ lucro.lucro_liquido|currency }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card h-100 card-fora">
+      <div class="card-header fw-semibold"><i class="bi bi-info-circle"></i> Fora do lucro do mês</div>
+      <div class="card-body d-flex flex-column gap-3">
+        <div class="fora-item">
+          <div class="kpi-label mb-1"><i class="bi bi-box-arrow-in-down"></i> Investido em estoque</div>
+          <div class="fora-valor">{{ lucro.compras_de_pecas|currency }}</div>
+          <div class="kpi-sub">compras de peças pagas no mês; viram custo quando usadas numa OS</div>
+        </div>
+        <div class="fora-item">
+          <div class="kpi-label mb-1"><i class="bi bi-hourglass-split"></i> A receber hoje</div>
+          <div class="fora-valor">{{ lucro.valor_a_receber|currency }}</div>
+          <div class="kpi-sub">{% if lucro.qtd_a_receber %}{{ lucro.qtd_a_receber }} OS concluída{{ lucro.qtd_a_receber|pluralize }}/entregue{{ lucro.qtd_a_receber|pluralize }} sem pagamento; entra no lucro quando for recebido{% else %}nenhuma OS concluída aguardando pagamento{% endif %}</div>
+        </div>
+        <div class="text-muted small mt-auto pt-2 border-top">
+          <i class="bi bi-info-circle"></i> O resultado considera só os lançamentos pagos/recebidos no mês.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header fw-semibold d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="bi bi-clipboard2-data"></i> Lucro por OS <span class="badge bg-secondary-subtle text-secondary-emphasis fw-normal ms-1">{{ lucro.linhas|length }}</span></span>
+    <div class="btn-group btn-group-sm nao-imprimir" role="group" aria-label="Ordenar">
+      <a href="?mes={{ mes }}&ano={{ ano }}&ordem=margem" class="btn btn-outline-secondary {% if ordem == 'margem' %}active{% endif %}">Menor margem</a>
+      <a href="?mes={{ mes }}&ano={{ ano }}&ordem=lucro" class="btn btn-outline-secondary {% if ordem == 'lucro' %}active{% endif %}">Maior lucro</a>
+      <a href="?mes={{ mes }}&ano={{ ano }}&ordem=recebido" class="btn btn-outline-secondary {% if ordem == 'recebido' %}active{% endif %}">Maior valor</a>
+      <a href="?mes={{ mes }}&ano={{ ano }}&ordem=data" class="btn btn-outline-secondary {% if ordem == 'data' %}active{% endif %}">Data</a>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle tabela-os">
+      <thead>
+        <tr>
+          <th>Ordem de serviço</th>
+          <th>Pago em</th>
+          <th class="text-end">Recebido</th>
+          <th class="text-end">Peças</th>
+          <th class="text-end">Taxa</th>
+          <th class="text-end">Lucro</th>
+          <th class="text-end">Margem</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for linha in lucro.linhas %}
+        <tr class="{% if linha.lucro < 0 %}table-danger{% endif %}">
+          <td>
+            <a href="{% url 'ordens_servico:os_detalhe' linha.ordem.pk %}" class="fw-semibold text-decoration-none">OS-{{ linha.ordem.numero }}</a>
+            {% if linha.abaixo_do_custo %}<span class="badge text-bg-danger ms-1">abaixo do custo</span>{% endif %}
+            {% if linha.custo_estimado %}<span class="badge text-bg-warning ms-1" title="Sem baixa de estoque registrada na época">custo estimado</span>{% endif %}
+            <div class="text-muted small">{{ linha.ordem.cliente.nome }}</div>
+          </td>
+          <td class="valor">{{ linha.data_pagamento|date:"d/m/Y" }}</td>
+          <td class="valor text-end">{{ linha.recebido|currency }}</td>
+          <td class="valor text-end text-danger">{{ linha.custo_pecas|currency }}</td>
+          <td class="valor text-end text-danger">{% if linha.taxa %}{{ linha.taxa|currency }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td class="valor text-end fw-bold {% if linha.lucro < 0 %}text-danger{% else %}text-success{% endif %}">{{ linha.lucro|currency }}</td>
+          <td class="valor text-end">{% if linha.margem is not None %}{{ linha.margem|floatformat:1 }}%{% else %}—{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">Nenhuma OS recebida em {{ nome_mes }}/{{ ano }}.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if lucro.linhas %}
+      <tfoot>
+        <tr>
+          <td colspan="2">Total das OS</td>
+          <td class="valor text-end">{{ lucro.receita_os|currency }}</td>
+          <td class="valor text-end text-danger">{{ lucro.custo_pecas|currency }}</td>
+          <td class="valor text-end text-danger">{{ lucro.taxas_os|currency }}</td>
+          <td class="valor text-end {% if lucro.lucro_os < 0 %}text-danger{% else %}text-success{% endif %}">{{ lucro.lucro_os|currency }}</td>
+          <td class="valor text-end">{% if lucro.margem_os is not None %}{{ lucro.margem_os|floatformat:1 }}%{% else %}—{% endif %}</td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+{% endblock %}

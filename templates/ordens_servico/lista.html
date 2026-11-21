@@ -158,6 +158,7 @@
               <a href="{% url 'ordens_servico:os_imprimir' os.pk %}" class="btn btn-sm btn-outline-primary" target="_blank" title="Imprimir OS">
                 <i class="bi bi-printer"></i>
               </a>
+              {% include 'ordens_servico/_botao_whatsapp.html' with tipo='pdf' rotulo='' icone='file-earmark-pdf' titulo='Enviar PDF da OS pelo WhatsApp' motivo=os.motivo_bloqueio_pdf contorno=True %}
             </td>
           </tr>
           {% empty %}

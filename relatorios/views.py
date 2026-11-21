@@ -1,10 +1,11 @@
 import calendar
 from datetime import date, timedelta
 
+from django.views import View
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
 from decimal import Decimal
@@ -26,7 +27,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         from django.db.models import F
 
         ctx = super().get_context_data(**kwargs)
-        hoje       = timezone.now().date()
+        hoje       = timezone.localdate()
         mes_atual  = hoje.month
         ano_atual  = hoje.year
 
@@ -53,6 +54,9 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             data_pagamento__month=mes_atual,
             data_pagamento__year=ano_atual,
         ).aggregate(t=Sum('valor'))['t'] or Decimal('0')
+        if self.request.user.role == 'admin':
+            from .lucro import calcular_lucro_do_mes
+            ctx['lucro_mes'] = calcular_lucro_do_mes(mes_atual, ano_atual)
 
         ctx['ordens_recentes'] = OrdemServico.objects.select_related(
             'cliente', 'veiculo'
@@ -85,7 +89,7 @@ def dashboard_data_api(request):
     """Retorna dados do gráfico de 6 meses. 12 queries → 1 query."""
     from financeiro.models import Lancamento
 
-    hoje = timezone.now().date()
+    hoje = timezone.localdate()
 
     meses = []
     for i in range(5, -1, -1):
@@ -127,7 +131,7 @@ class RelatorioFaturamentoView(RoleRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         from financeiro.models import Lancamento
         ctx  = super().get_context_data(**kwargs)
-        hoje = timezone.now().date()
+        hoje = timezone.localdate()
 
         # [C-01] Validação de parâmetros GET
         mes, ano = parse_mes_ano(self.request, hoje)
@@ -225,7 +229,7 @@ class RelatorioOrcamentosView(RoleRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         from orcamentos.models import Orcamento
         ctx  = super().get_context_data(**kwargs)
-        hoje = timezone.now().date()
+        hoje = timezone.localdate()
 
         # [C-01] Validação de parâmetros GET
         mes, ano = parse_mes_ano(self.request, hoje)
@@ -259,7 +263,7 @@ class RelatorioServicosView(RoleRequiredMixin, TemplateView):
         from django.db.models import Q
 
         ctx  = super().get_context_data(**kwargs)
-        hoje = timezone.now().date()
+        hoje = timezone.localdate()
 
         # periodo: 'mes' (padrão) | 'ano' | 'todo'
         periodo = self.request.GET.get('periodo', 'mes')
@@ -313,3 +317,72 @@ class RelatorioServicosView(RoleRequiredMixin, TemplateView):
             'next_mes': next_mes, 'next_ano': next_ano,
         })
         return ctx
+
+
+ORDENACOES_LUCRO = {
+    'lucro': (lambda linha: linha.lucro, True),
+    'margem': (lambda linha: linha.margem if linha.margem is not None else Decimal('-999999'), False),
+    'recebido': (lambda linha: linha.recebido, True),
+    'data': (lambda linha: (linha.data_pagamento, linha.ordem.pk), False),
+}
+
+
+NOMES_MES = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+             'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
+
+class LucroDoMesMixin(RoleRequiredMixin):
+    allowed_roles = ['admin']
+
+    def dados_do_lucro(self):
+        from .lucro import calcular_lucro_do_mes
+
+        mes, ano = parse_mes_ano(self.request, timezone.localdate())
+        ordem = self.request.GET.get('ordem', 'margem')
+        if ordem not in ORDENACOES_LUCRO:
+            ordem = 'margem'
+
+        lucro = calcular_lucro_do_mes(mes, ano)
+        chave, decrescente = ORDENACOES_LUCRO[ordem]
+        lucro.linhas.sort(key=chave, reverse=decrescente)
+        return {
+            'lucro': lucro,
+            'composicao': lucro.composicao(),
+            'emitido_em': timezone.localtime(),
+            'emitido_por': self.request.user.get_full_name() or self.request.user.username,
+            'ordem': ordem,
+            'mes': mes,
+            'ano': ano,
+            'nome_mes': NOMES_MES[mes],
+        }
+
+
+class RelatorioLucroView(LucroDoMesMixin, TemplateView):
+    template_name = 'relatorios/lucro.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx.update(self.dados_do_lucro())
+        mes, ano = ctx['mes'], ctx['ano']
+        ctx.update({
+            'prev_mes': mes - 1 if mes > 1 else 12,
+            'prev_ano': ano if mes > 1 else ano - 1,
+            'next_mes': mes + 1 if mes < 12 else 1,
+            'next_ano': ano if mes < 12 else ano + 1,
+        })
+        return ctx
+
+
+class RelatorioLucroExcelView(LucroDoMesMixin, View):
+    def get(self, request):
+        from .exportar_lucro import gerar_planilha_lucro
+
+        dados = self.dados_do_lucro()
+        resposta = HttpResponse(
+            gerar_planilha_lucro(dados['lucro'], dados),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        resposta['Content-Disposition'] = (
+            f'attachment; filename="lucratividade_{dados["ano"]}-{dados["mes"]:02d}.xlsx"'
+        )
+        return resposta

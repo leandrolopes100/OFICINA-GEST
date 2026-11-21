@@ -63,6 +63,7 @@
     {% endif %}
     {% if os.status != 'cancelada' %}
     {% include 'ordens_servico/_botao_whatsapp.html' with tipo='acompanhamento' rotulo='Enviar acompanhamento' motivo=motivo_bloqueio_acompanhamento contorno=True %}
+    {% include 'ordens_servico/_botao_whatsapp.html' with tipo='pdf' rotulo='Enviar PDF' icone='file-earmark-pdf' motivo=motivo_bloqueio_pdf contorno=True %}
     {% endif %}
 
     <a href="{% url 'ordens_servico:os_imprimir' os.pk %}" class="btn btn-outline-primary btn-sm" target="_blank">
@@ -185,6 +186,51 @@
         </dl>
       </div>
     </div>
+
+    {% if resultado and os.status != 'cancelada' %}
+    <div class="card mb-3 {% if resultado.lucro < 0 %}border-danger{% endif %}">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-graph-up-arrow"></i> Resultado da OS</span>
+        {% if resultado.realizado %}
+        <span class="badge bg-success">Realizado</span>
+        {% else %}
+        <span class="badge bg-secondary" title="A OS ainda não foi paga: valores calculados sobre o total da OS.">Previsto</span>
+        {% endif %}
+      </div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-6">{% if resultado.realizado %}Valor recebido{% else %}Valor da OS{% endif %}</dt>
+          <dd class="col-6 text-end">{{ resultado.receita|currency }}</dd>
+          <dt class="col-6 text-danger">(−) Custo das peças</dt>
+          <dd class="col-6 text-end text-danger">{{ resultado.custo_pecas|currency }}</dd>
+          {% if resultado.taxa %}
+          <dt class="col-6 text-danger">(−) Taxa do cartão</dt>
+          <dd class="col-6 text-end text-danger">{{ resultado.taxa|currency }}</dd>
+          {% endif %}
+          <dt class="col-6 fw-bold border-top pt-1">Lucro</dt>
+          <dd class="col-6 text-end fw-bold border-top pt-1 fs-5 {% if resultado.lucro < 0 %}text-danger{% else %}text-success{% endif %}">
+            {{ resultado.lucro|currency }}
+          </dd>
+          {% if resultado.margem is not None %}
+          <dt class="col-6">Margem</dt>
+          <dd class="col-6 text-end">{{ resultado.margem|floatformat:1 }}%</dd>
+          {% endif %}
+        </dl>
+        {% if resultado.custo_previsto %}
+        <div class="text-muted mt-2"><i class="bi bi-info-circle"></i> Custo das peças pelo preço de custo atual; fica fixo quando a OS for concluída.</div>
+        {% elif resultado.custo_estimado %}
+        <div class="text-warning-emphasis mt-2"><i class="bi bi-exclamation-triangle"></i> Custo estimado: esta OS não tinha baixa de estoque registrada; foi usado o custo cadastrado das peças.</div>
+        {% endif %}
+        {% if resultado.itens_abaixo_do_custo %}
+        <div class="alert alert-danger py-2 mt-2 mb-0">
+          <i class="bi bi-exclamation-octagon-fill"></i> Peça vendida abaixo do custo:
+          {% for item in resultado.itens_abaixo_do_custo %}{{ item.descricao }} ({{ item.preco_unitario|currency }} &lt; custo {{ item.custo_unitario_efetivo|currency }}){% if not forloop.last %}; {% endif %}{% endfor %}
+        </div>
+        {% endif %}
+        <div class="text-muted mt-2">Mão de obra e despesas fixas entram no relatório de lucro do mês.</div>
+      </div>
+    </div>
+    {% endif %}
 
     {% if os.status == 'concluida' or os.status == 'entregue' %}
       {% if ja_pago %}

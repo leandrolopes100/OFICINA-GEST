@@ -1,5 +1,7 @@
 import secrets
+from dataclasses import dataclass, field
 from datetime import timedelta
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import models, transaction
 from django.utils import timezone
@@ -8,6 +10,19 @@ from clientes.models import Cliente
 from veiculos.models import Veiculo
 from orcamentos.models import Orcamento, TipoServico
 from estoque.models import Produto
+
+
+@dataclass(frozen=True)
+class ResultadoOS:
+    receita: Decimal
+    custo_pecas: Decimal
+    taxa: Decimal
+    lucro: Decimal
+    margem: Decimal | None
+    realizado: bool
+    custo_previsto: bool
+    custo_estimado: bool
+    itens_abaixo_do_custo: list = field(default_factory=list)
 
 
 class OrdemServico(models.Model):
@@ -181,6 +196,42 @@ class OrdemServico(models.Model):
     def pode_editar(self):
         return self.status in ('aberta', 'em_andamento', 'aguardando')
 
+    def congelar_custos(self):
+        itens = list(self.itens_peca.select_related('produto'))
+        for item in itens:
+            item.custo_unitario = item.produto.preco_custo
+            item.custo_estimado = False
+        ItemOSPeca.objects.bulk_update(itens, ['custo_unitario', 'custo_estimado'])
+        return itens
+
+    def resultado(self):
+        from financeiro.models import Lancamento
+
+        itens = [] if self.status == 'cancelada' else list(self.itens_peca.select_related('produto'))
+        custo_pecas = sum((item.custo_total for item in itens), Decimal('0'))
+        recebido = Lancamento.objects.filter(
+            ordem_servico=self, tipo='receita', status='pago',
+        ).aggregate(valor=models.Sum('valor'), taxa=models.Sum('valor_taxa'))
+
+        realizado = recebido['valor'] is not None
+        if realizado:
+            receita = recebido['valor']
+        else:
+            receita = Decimal('0') if self.status == 'cancelada' else self.total
+        taxa = (recebido['taxa'] or Decimal('0')) if realizado else Decimal('0')
+        lucro = receita - custo_pecas - taxa
+        return ResultadoOS(
+            receita=receita,
+            custo_pecas=custo_pecas,
+            taxa=taxa,
+            lucro=lucro,
+            margem=(lucro / receita * 100).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP) if receita else None,
+            realizado=realizado,
+            custo_previsto=any(item.custo_unitario is None for item in itens),
+            custo_estimado=any(item.custo_estimado for item in itens),
+            itens_abaixo_do_custo=[item for item in itens if item.abaixo_do_custo],
+        )
+
 
 class ItemOSServico(models.Model):
     ordem_servico = models.ForeignKey(OrdemServico, on_delete=models.CASCADE, related_name='itens_servico')
@@ -205,6 +256,10 @@ class ItemOSPeca(models.Model):
     quantidade = models.DecimalField('Quantidade', max_digits=10, decimal_places=3)
     preco_unitario = models.DecimalField('Preço Unitário', max_digits=10, decimal_places=2)
     total = models.DecimalField('Total', max_digits=10, decimal_places=2, default=0)
+    custo_unitario = models.DecimalField(
+        'Custo Unitário', max_digits=10, decimal_places=2, null=True, blank=True, editable=False,
+    )
+    custo_estimado = models.BooleanField('Custo estimado', default=False, editable=False)
 
     class Meta:
         verbose_name = 'Item de Peça (OS)'
@@ -212,3 +267,17 @@ class ItemOSPeca(models.Model):
     def save(self, *args, **kwargs):
         self.total = self.quantidade * self.preco_unitario
         super().save(*args, **kwargs)
+
+    @property
+    def custo_unitario_efetivo(self):
+        if self.custo_unitario is not None:
+            return self.custo_unitario
+        return self.produto.preco_custo
+
+    @property
+    def custo_total(self):
+        return (self.quantidade * self.custo_unitario_efetivo).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    @property
+    def abaixo_do_custo(self):
+        return self.preco_unitario < self.custo_unitario_efetivo

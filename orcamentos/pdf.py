@@ -9,7 +9,7 @@ from reportlab.lib.enums import TA_RIGHT
 from django.conf import settings
 from django.contrib.staticfiles import finders
 
-from core.pdf import desenhar_rodape
+from core.pdf import desenhar_rodape, texto_seguro
 
 
 def gerar_pdf_orcamento(orcamento):
@@ -132,9 +132,9 @@ def gerar_pdf_orcamento(orcamento):
 
     if orcamento.observacoes:
         story.append(Spacer(1, 0.5*cm))
-        story.append(Paragraph(f'<b>Observações:</b> {orcamento.observacoes}', small))
+        story.append(Paragraph(f'<b>Observações:</b> {texto_seguro(orcamento.observacoes)}', small))
     if orcamento.condicoes:
-        story.append(Paragraph(f'<b>Condições:</b> {orcamento.condicoes}', small))
+        story.append(Paragraph(f'<b>Condições:</b> {texto_seguro(orcamento.condicoes)}', small))
 
     story.append(Spacer(1, 1*cm))
     story.append(HRFlowable(width='100%'))

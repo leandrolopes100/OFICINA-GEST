@@ -1,7 +1,13 @@
+from html import escape
+
 from reportlab.lib import colors
 
 TEXTO_RODAPE = 'Oficina Gest - Sistema de Gestão · lopsystem.com.br'
 URL_LOPSYSTEM = 'https://lopsystem.com.br'
+
+
+def texto_seguro(valor):
+    return escape(str(valor or ''), quote=False).replace('\r\n', '\n').replace('\n', '<br/>')
 
 
 def desenhar_rodape(canvas, doc):

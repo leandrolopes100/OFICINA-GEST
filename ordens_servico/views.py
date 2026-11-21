@@ -19,7 +19,7 @@ from core.utils import calcular_taxa, periodo_do_request, registrar_historico
 from core.whatsapp import formatar_telefone_exibicao, motivo_sem_whatsapp
 from .models import OrdemServico, ItemOSServico, ItemOSPeca
 from .whatsapp import (
-    ACOMPANHAMENTO, PRONTO, TIPOS_MENSAGEM, link_whatsapp_ordem, motivo_bloqueio_envio,
+    ACOMPANHAMENTO, PDF, PRONTO, TIPOS_MENSAGEM, link_whatsapp_ordem, motivo_bloqueio_envio,
     url_publica_ordem,
 )
 from .forms import (
@@ -118,7 +118,7 @@ class OrdemServicoListView(LoginRequiredMixin, ListView):
         from financeiro.models import Lancamento
 
         ctx  = super().get_context_data(**kwargs)
-        hoje = timezone.now().date()
+        hoje = timezone.localdate()
 
         ctx['status_choices']          = OrdemServico.STATUS_CHOICES
         ctx['status_atual']            = self.request.GET.get('status', '')
@@ -130,6 +130,10 @@ class OrdemServicoListView(LoginRequiredMixin, ListView):
         ctx['hoje']                    = hoje
         ctx['status_ativos']           = _STATUS_ATIVOS
         ctx['statuses_requer_pagamento'] = _STATUS_REQUER_PAGAMENTO
+        for ordem in ctx['ordens']:
+            ordem.motivo_bloqueio_pdf = (
+                motivo_bloqueio_envio(ordem, PDF) or motivo_sem_whatsapp(ordem.cliente)
+            )
 
         ctx['total_atrasadas'] = OrdemServico.objects.filter(
             data_previsao__lt=hoje,
@@ -209,6 +213,9 @@ class OrdemServicoDetailView(LoginRequiredMixin, DetailView):
             motivo_bloqueio_envio(self.object, ACOMPANHAMENTO) or sem_whatsapp
         )
         ctx['motivo_bloqueio_pronto'] = motivo_bloqueio_envio(self.object, PRONTO) or sem_whatsapp
+        ctx['motivo_bloqueio_pdf'] = motivo_bloqueio_envio(self.object, PDF) or sem_whatsapp
+        if self.request.user.role == 'admin':
+            ctx['resultado'] = self.object.resultado()
         ctx['url_acompanhamento'] = (
             url_publica_ordem(self.request, self.object)
             if self.object.link_visivel_ao_cliente else ''
@@ -371,13 +378,17 @@ class AtualizarStatusView(LoginRequiredMixin, View):
             # Cria movimentações de saída e atualiza status em transação única
             try:
                 with transaction.atomic():
-                    for item in itens_peca:
+                    os = OrdemServico.objects.select_for_update().get(pk=pk)
+                    if not os.pode_mudar_para(novo_status):
+                        raise ValueError('a OS já foi concluída ou mudou de status em outra tela.')
+                    for item in os.congelar_custos():
                         if item.quantidade > 0:
                             MovimentacaoEstoque.objects.create(
                                 produto=item.produto,
+                                ordem_servico=os,
                                 tipo='saida',
                                 quantidade=item.quantidade,
-                                custo_unitario=item.produto.preco_custo,
+                                custo_unitario=item.custo_unitario,
                                 observacao=(
                                     f'OS-{os.numero} — {os.cliente.nome} '
                                     f'({item.descricao})'
@@ -471,7 +482,11 @@ class OSEnviarWhatsAppView(LoginRequiredMixin, View):
 
         os.garantir_link_publico()
         telefone, url_whatsapp = link_whatsapp_ordem(request, os, tipo)
-        assunto = 'Aviso de veículo pronto' if tipo == PRONTO else 'Link de acompanhamento'
+        assunto = {
+            PRONTO: 'Aviso de veículo pronto',
+            PDF: 'PDF da OS',
+            ACOMPANHAMENTO: 'Link de acompanhamento',
+        }[tipo]
         registrar_historico(
             ordem_servico=os, tipo='outro', usuario=request.user,
             descricao=f'{assunto} enviado pelo WhatsApp para {formatar_telefone_exibicao(telefone)}.',
@@ -550,6 +565,16 @@ class RegistrarPagamentoView(LoginRequiredMixin, View):
         from financeiro.models import Lancamento, FormaPagamento
 
         os        = get_object_or_404(OrdemServico, pk=pk)
+        url_detalhe = reverse('ordens_servico:os_detalhe', kwargs={'pk': pk})
+        if os.status not in ('concluida', 'entregue'):
+            messages.error(request, 'O pagamento só pode ser registrado com a OS concluída ou entregue.')
+            return redirect(url_detalhe)
+        if Lancamento.objects.filter(ordem_servico=os, tipo='receita', status='pago').exists():
+            messages.error(
+                request,
+                'Esta OS já tem pagamento registrado. Para corrigir, edite o lançamento no Financeiro.',
+            )
+            return redirect(url_detalhe)
         valor_str = request.POST.get('valor_pago', '').replace(',', '.')
         forma_id  = request.POST.get('forma_pagamento', '').strip()
         obs       = request.POST.get('observacao', '')
@@ -573,53 +598,49 @@ class RegistrarPagamentoView(LoginRequiredMixin, View):
             messages.error(request, 'Forma de pagamento inválida ou inativa.')
             return redirect(reverse('ordens_servico:os_detalhe', kwargs={'pk': pk}))
 
+        from django.db import IntegrityError, transaction
+
+        hoje       = timezone.localdate()
+        valor_taxa = calcular_taxa(valor, forma)
         try:
-            lancamento = Lancamento.objects.filter(
-                ordem_servico=os, tipo='receita',
-            ).first()
-
-            hoje       = timezone.now().date()
-            valor_taxa = calcular_taxa(valor, forma)
-
-            if not lancamento:
-                Lancamento.objects.create(
-                    tipo='receita',
-                    categoria='servico',
-                    forma_pagamento=forma,
-                    descricao=f'OS-{os.numero} — {os.cliente.nome}',
-                    valor=valor,
-                    valor_taxa=valor_taxa,
-                    data_competencia=hoje,
-                    data_vencimento=hoje,
-                    data_pagamento=hoje,
-                    status='pago',
-                    ordem_servico=os,
-                    observacoes=obs,
-                )
-            else:
+            with transaction.atomic():
+                os = OrdemServico.objects.select_for_update().select_related('cliente').get(pk=pk)
+                lancamento = Lancamento.objects.select_for_update().filter(
+                    ordem_servico=os, tipo='receita',
+                ).first()
+                if lancamento and lancamento.status == 'pago':
+                    raise IntegrityError('pagamento já registrado')
+                if not lancamento:
+                    lancamento = Lancamento(
+                        tipo='receita',
+                        categoria='servico',
+                        descricao=f'OS-{os.numero} — {os.cliente.nome}',
+                        data_competencia=hoje,
+                        data_vencimento=hoje,
+                        ordem_servico=os,
+                    )
                 lancamento.data_pagamento  = hoje
                 lancamento.status          = 'pago'
                 lancamento.valor           = valor
                 lancamento.valor_taxa      = valor_taxa
-                lancamento.forma_pagamento = forma   # sempre atualiza — agora obrigatória
+                lancamento.forma_pagamento = forma
                 if obs:
                     lancamento.observacoes = obs
                 lancamento.save()
-
-            messages.success(request, f'Pagamento de R$ {valor:.2f} registrado com sucesso!')
-            registrar_historico(
-                ordem_servico=os, tipo='pagamento',
-                descricao=(
-                    f'Pagamento de R$ {valor:.2f} registrado'
-                    f'{f" via {forma.nome}" if forma else ""}.'
-                ),
-                usuario=request.user,
+        except IntegrityError:
+            messages.error(
+                request,
+                'Esta OS já tem pagamento registrado. Para corrigir, edite o lançamento no Financeiro.',
             )
+            return redirect(url_detalhe)
 
-        except Exception as exc:
-            messages.warning(request, f'Erro ao registrar lançamento financeiro: {exc}')
-
-        return redirect(reverse('ordens_servico:os_detalhe', kwargs={'pk': pk}))
+        messages.success(request, f'Pagamento de R$ {valor:.2f} registrado com sucesso!')
+        registrar_historico(
+            ordem_servico=os, tipo='pagamento',
+            descricao=f'Pagamento de R$ {valor:.2f} registrado via {forma.nome}.',
+            usuario=request.user,
+        )
+        return redirect(url_detalhe)
 
 
 # ---------------------------------------------------------------------------

@@ -103,6 +103,11 @@ class MovimentacaoEstoque(models.Model):
     quantidade = models.DecimalField('Quantidade', max_digits=10, decimal_places=3)
     custo_unitario = models.DecimalField('Custo Unitário', max_digits=10, decimal_places=2, default=0)
     nota_fiscal = models.CharField('Nota Fiscal', max_length=50, blank=True)
+    ordem_servico = models.ForeignKey(
+        'ordens_servico.OrdemServico', on_delete=models.SET_NULL,
+        null=True, blank=True, editable=False,
+        related_name='movimentacoes_estoque', verbose_name='Ordem de Serviço',
+    )
     observacao = models.TextField('Observação', blank=True)
     usuario = models.ForeignKey(
         'accounts.CustomUser', on_delete=models.SET_NULL,

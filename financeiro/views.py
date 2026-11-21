@@ -112,7 +112,7 @@ class LancamentoPagarView(RoleRequiredMixin, View):
             return redirect(reverse('financeiro:list'))
 
         lancamento.status         = 'pago'
-        lancamento.data_pagamento = timezone.now().date()
+        lancamento.data_pagamento = timezone.localdate()
         lancamento.save()
         messages.success(request, 'Lançamento marcado como pago!')
         return redirect(reverse('financeiro:list'))
@@ -141,7 +141,7 @@ class FluxoCaixaView(RoleRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx  = super().get_context_data(**kwargs)
-        hoje = timezone.now().date()
+        hoje = timezone.localdate()
 
         # [C-01] Validação de parâmetros GET — evita ValueError e erro 500
         mes, ano = parse_mes_ano(self.request, hoje)

@@ -5,7 +5,8 @@ from core.whatsapp import identidade_oficina, montar_link_whatsapp, telefone_wha
 
 ACOMPANHAMENTO = 'acompanhamento'
 PRONTO = 'pronto'
-TIPOS_MENSAGEM = (ACOMPANHAMENTO, PRONTO)
+PDF = 'pdf'
+TIPOS_MENSAGEM = (ACOMPANHAMENTO, PRONTO, PDF)
 
 STATUS_PARA_CLIENTE = {
     'aberta': 'Recebido pela oficina',
@@ -36,10 +37,23 @@ def url_publica_ordem(request, ordem):
     )
 
 
+def url_publica_documento_ordem(request, ordem):
+    return request.build_absolute_uri(
+        reverse('acompanhamento_publico:documento', kwargs={'token': ordem.token_publico})
+    )
+
+
 def montar_mensagem_ordem(ordem, tipo, url_publica):
     primeiro_nome = (ordem.cliente.nome or '').split(' ')[0].title()
     veiculo = f'{ordem.veiculo.modelo.nome} placa {ordem.veiculo.placa}'
     oficina = identidade_oficina()['nome']
+    if tipo == PDF:
+        return (
+            f'Olá, {primeiro_nome}!\n\n'
+            f'Segue a ordem de serviço OS-{ordem.numero} do seu {veiculo} na {oficina}.\n\n'
+            f'Total: {currency(ordem.total)}\n\n'
+            f'Abra ou baixe o PDF da OS:\n{url_publica}'
+        )
     if tipo == PRONTO:
         return (
             f'Olá, {primeiro_nome}!\n\n'
@@ -59,5 +73,6 @@ def link_whatsapp_ordem(request, ordem, tipo):
     telefone = telefone_whatsapp_cliente(ordem.cliente)
     if not telefone:
         return None, None
-    texto = montar_mensagem_ordem(ordem, tipo, url_publica_ordem(request, ordem))
+    url_publica = url_publica_documento_ordem(request, ordem) if tipo == PDF else url_publica_ordem(request, ordem)
+    texto = montar_mensagem_ordem(ordem, tipo, url_publica)
     return telefone, montar_link_whatsapp(telefone, texto)

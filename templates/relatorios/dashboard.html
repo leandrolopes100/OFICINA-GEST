@@ -10,34 +10,43 @@
 <!-- KPIs -->
 <div class="card kpi-strip mb-4">
   <div class="row g-0">
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md">
       <a href="/clientes/" class="kpi-col" style="--kpi-cor:#0d6efd">
         <div class="kpi-label"><i class="bi bi-people-fill"></i> Clientes Ativos</div>
         <div class="kpi-value">{{ total_clientes }}</div>
         <div class="kpi-foot">Ver clientes <i class="bi bi-arrow-right"></i></div>
       </a>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md">
       <a href="/ordens-servico/?status=abertas" class="kpi-col" style="--kpi-cor:#fd7e14">
         <div class="kpi-label"><i class="bi bi-clipboard2-check-fill"></i> OS em Aberto</div>
         <div class="kpi-value">{{ os_abertas }}</div>
         <div class="kpi-foot">Ver ordens <i class="bi bi-arrow-right"></i></div>
       </a>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md">
       <a href="/orcamentos/?status=" class="kpi-col" style="--kpi-cor:#6610f2">
         <div class="kpi-label"><i class="bi bi-file-earmark-text-fill"></i> Orçamentos Pendentes</div>
         <div class="kpi-value">{{ orcamentos_pendentes }}</div>
         <div class="kpi-foot">Ver orçamentos <i class="bi bi-arrow-right"></i></div>
       </a>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md">
       <a href="/relatorios/faturamento/" class="kpi-col" style="--kpi-cor:#198754">
         <div class="kpi-label"><i class="bi bi-cash-stack"></i> Faturamento do Mês</div>
         <div class="kpi-value" style="font-size:1.5rem">{{ faturamento_mes|currency }}</div>
         <div class="kpi-foot">Ver relatório <i class="bi bi-arrow-right"></i></div>
       </a>
     </div>
+    {% if lucro_mes %}
+    <div class="col-6 col-md">
+      <a href="{% url 'relatorios:lucro' %}" class="kpi-col" style="--kpi-cor:{% if lucro_mes.lucro_liquido >= 0 %}#198754{% else %}#dc3545{% endif %}">
+        <div class="kpi-label"><i class="bi bi-graph-up-arrow"></i> Lucro do Mês</div>
+        <div class="kpi-value {% if lucro_mes.lucro_liquido < 0 %}text-danger{% endif %}" style="font-size:1.5rem">{{ lucro_mes.lucro_liquido|currency }}</div>
+        <div class="kpi-foot">{% if lucro_mes.margem_liquida is not None %}Margem {{ lucro_mes.margem_liquida|floatformat:1 }}% · {% endif %}Ver detalhes <i class="bi bi-arrow-right"></i></div>
+      </a>
+    </div>
+    {% endif %}
   </div>
 </div>
 

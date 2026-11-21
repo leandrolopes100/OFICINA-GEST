@@ -7,10 +7,10 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.enums import TA_RIGHT
 from django.contrib.staticfiles import finders
 
-from core.pdf import desenhar_rodape
+from core.pdf import desenhar_rodape, texto_seguro
 
 
-def gerar_pdf_os(os_obj):
+def gerar_pdf_os(os_obj, para_cliente=False):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
                             rightMargin=2*cm, leftMargin=2*cm,
@@ -55,9 +55,9 @@ def gerar_pdf_os(os_obj):
     story.append(info_table)
     story.append(Spacer(1, 0.3*cm))
 
-    story.append(Paragraph(f'<b>Defeito Relatado:</b> {os_obj.defeito_relatado}', small))
-    if os_obj.diagnostico:
-        story.append(Paragraph(f'<b>Diagnóstico:</b> {os_obj.diagnostico}', small))
+    story.append(Paragraph(f'<b>Defeito Relatado:</b> {texto_seguro(os_obj.defeito_relatado)}', small))
+    if os_obj.diagnostico and not para_cliente:
+        story.append(Paragraph(f'<b>Diagnóstico:</b> {texto_seguro(os_obj.diagnostico)}', small))
     story.append(Spacer(1, 0.3*cm))
 
     svc_data = [['Serviço', 'Qtd', 'Valor Unit.', 'Total']]
