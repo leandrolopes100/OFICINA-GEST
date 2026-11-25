@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
-from django.db.models import Q, Exists, OuterRef
+from django.db.models import Case, Exists, IntegerField, OuterRef, Q, Value, When
 from core.utils import calcular_taxa, periodo_do_request, registrar_historico
 
 from core.whatsapp import formatar_telefone_exibicao, motivo_sem_whatsapp
@@ -87,7 +87,15 @@ class OrdemServicoListView(LoginRequiredMixin, ListView):
                     status='pago',
                 )
             )
-        ).order_by('-data_abertura')
+        ).annotate(
+            prioridade=Case(
+                When(status__in=_STATUS_ATIVOS, then=Value(0)),
+                When(status='concluida', then=Value(0)),
+                When(status='entregue', tem_pagamento=False, then=Value(0)),
+                default=Value(1),
+                output_field=IntegerField(),
+            )
+        ).order_by('prioridade', '-data_abertura', '-pk')
 
         q             = self.request.GET.get('q', '').strip()
         status        = self.request.GET.get('status', '')

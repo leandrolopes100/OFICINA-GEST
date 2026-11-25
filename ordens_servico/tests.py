@@ -509,6 +509,57 @@ class FiltroListaOrdensTests(BaseOrdemTestCase):
         self.assertContains(resposta, 'href="?q=jo%C3%A3o&amp;de=2026-11-01&amp;status=abertas&amp;page=2"')
 
 
+class OrdemDaListaTests(BaseOrdemTestCase):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.usuario)
+
+    def criar(self, status, dias_atras, pago=False):
+        from financeiro.models import Lancamento
+        ordem = self.criar_ordem(status=status, com_link=False)
+        OrdemServico.objects.filter(pk=ordem.pk).update(
+            data_abertura=timezone.now() - timedelta(days=dias_atras),
+        )
+        if pago:
+            Lancamento.objects.create(
+                tipo='receita', categoria='servico', ordem_servico=ordem, descricao='x',
+                valor=ordem.total, data_competencia=timezone.localdate(),
+                data_pagamento=timezone.localdate(), status='pago',
+            )
+        return ordem
+
+    def listar(self, **params):
+        resposta = self.client.get(reverse('ordens_servico:os_lista'), params)
+        self.assertEqual(resposta.status_code, 200)
+        return [o.pk for o in resposta.context['ordens']]
+
+    def test_pendentes_ficam_acima_mesmo_quando_mais_antigas(self):
+        entregue_paga = self.criar('entregue', 1, pago=True)
+        cancelada = self.criar('cancelada', 2)
+        aberta = self.criar('aberta', 30)
+        andamento = self.criar('em_andamento', 40)
+        aguardando = self.criar('aguardando', 45)
+        pronta = self.criar('concluida', 50)
+        entregue_a_receber = self.criar('entregue', 60)
+        self.assertEqual(
+            self.listar(),
+            [aberta.pk, andamento.pk, aguardando.pk, pronta.pk, entregue_a_receber.pk,
+             entregue_paga.pk, cancelada.pk],
+        )
+
+    def test_pendentes_ocupam_a_primeira_pagina(self):
+        for dias in range(1, 21):
+            self.criar('entregue', dias, pago=True)
+        antiga_aberta = self.criar('aberta', 365)
+        self.assertEqual(self.listar()[0], antiga_aberta.pk)
+        self.assertNotIn(antiga_aberta.pk, self.listar(page=2))
+
+    def test_filtro_de_status_continua_funcionando(self):
+        self.criar('aberta', 1)
+        entregue_paga = self.criar('entregue', 2, pago=True)
+        self.assertEqual(self.listar(status='entregue'), [entregue_paga.pk])
+
+
 class CustoELucroDaOSTests(BaseOrdemTestCase):
     def setUp(self):
         super().setUp()
