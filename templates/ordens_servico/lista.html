@@ -7,8 +7,22 @@
 <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
 <style>
   .select2-container { width: 100% !important; }
-  .row-sem-pagamento { background-color: #fff8f0 !important; border-left: 3px solid #fd7e14; }
-  .row-sem-pagamento:hover { background-color: #fdebd0 !important; }
+  .os-linha > td:first-child {
+    box-shadow: inset 4px 0 0 var(--os-faixa),
+                inset 0 0 0 9999px var(--bs-table-bg-state, var(--bs-table-bg-type, var(--bs-table-accent-bg)));
+  }
+  .os-linha--atrasada  { --os-faixa: #dc3545; }
+  .os-linha--execucao  { --os-faixa: #0d6efd; --bs-table-bg: #eef4ff; }
+  .os-linha--pronta    { --os-faixa: #198754; --bs-table-bg: #ecf8f1; }
+  .os-linha--receber   { --os-faixa: #fd7e14; --bs-table-bg: #fff4e8; }
+  .os-linha--cancelada { --os-faixa: transparent; }
+  .os-linha--cancelada > td { color: var(--bs-secondary-color); }
+  .os-legenda { font-size: .8rem; color: var(--bs-secondary-color); }
+  .os-legenda span::before {
+    content: ''; display: inline-block; width: .75rem; height: .75rem;
+    border-radius: 2px; margin-right: .3rem; vertical-align: -1px;
+    background: var(--os-fundo); box-shadow: inset 3px 0 0 var(--os-faixa);
+  }
 </style>
 {% endblock %}
 
@@ -99,6 +113,13 @@
       </div>
     </form>
 
+    <div class="os-legenda d-flex flex-wrap gap-3 mb-2">
+      <span style="--os-faixa:#dc3545; --os-fundo:#f8d7da">Atrasada</span>
+      <span style="--os-faixa:#0d6efd; --os-fundo:#eef4ff">Em execução</span>
+      <span style="--os-faixa:#198754; --os-fundo:#ecf8f1">Pronta p/ retirada</span>
+      <span style="--os-faixa:#fd7e14; --os-fundo:#fff4e8">Entregue sem pagamento</span>
+    </div>
+
     <div class="table-responsive">
       <table class="table table-hover">
         <thead class="table-light">
@@ -117,9 +138,15 @@
         <tbody>
           {% for os in ordens %}
           {% if os.data_previsao and os.data_previsao < hoje and os.status in status_ativos %}
-          <tr class="table-danger">
-          {% elif not os.tem_pagamento and os.status in statuses_requer_pagamento %}
-          <tr class="row-sem-pagamento">
+          <tr class="table-danger os-linha os-linha--atrasada">
+          {% elif os.status in status_ativos %}
+          <tr class="os-linha os-linha--execucao">
+          {% elif os.status == 'concluida' %}
+          <tr class="os-linha os-linha--pronta">
+          {% elif os.status == 'entregue' and not os.tem_pagamento %}
+          <tr class="os-linha os-linha--receber">
+          {% elif os.status == 'cancelada' %}
+          <tr class="os-linha os-linha--cancelada">
           {% else %}
           <tr>
           {% endif %}
