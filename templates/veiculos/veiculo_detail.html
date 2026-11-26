@@ -5,6 +5,10 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4 class="mb-0 fw-bold"><i class="bi bi-car-front-fill text-primary"></i> {{ veiculo.placa }} — {{ veiculo.modelo }}</h4>
   <div class="d-flex gap-2">
+    <a href="{% url 'veiculos:historico_pdf' veiculo.pk %}" target="_blank" rel="noopener"
+       class="btn btn-outline-danger btn-sm">
+      <i class="bi bi-file-earmark-pdf"></i> PDF do histórico
+    </a>
     <a href="{% url 'veiculos:update' veiculo.pk %}" class="btn btn-warning btn-sm">
       <i class="bi bi-pencil"></i> Editar
     </a>
@@ -68,6 +72,38 @@
   </div>
 
   <div class="col-md-8">
+    <div class="row g-2 mb-3">
+      <div class="col-sm-4">
+        <div class="card h-100">
+          <div class="card-body py-2">
+            <div class="small text-muted">Visitas</div>
+            <div class="fs-5 fw-bold">{{ historico.visitas }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-4">
+        <div class="card h-100">
+          <div class="card-body py-2">
+            <div class="small text-muted">Total em OS entregues</div>
+            <div class="fs-5 fw-bold">{{ historico.total_entregue|currency }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-4">
+        <div class="card h-100">
+          <div class="card-body py-2">
+            <div class="small text-muted">Última visita</div>
+            {% if historico.ultima_visita %}
+            <div class="fs-5 fw-bold">{{ historico.ultima_visita.data_abertura|date:"d/m/Y" }}</div>
+            <div class="small text-muted">{{ historico.ultima_visita.km_entrada|floatformat:"0g" }} km</div>
+            {% else %}
+            <div class="fs-5 fw-bold">—</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="card mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>Histórico de OS</span>
@@ -78,19 +114,49 @@
         </a>
         {% endif %}
       </div>
+      {% if historico.ordens %}
+      <div class="card-body border-bottom py-2">
+        <label for="busca-historico" class="visually-hidden">Procurar no histórico</label>
+        <input type="search" id="busca-historico" class="form-control form-control-sm" autocomplete="off"
+               placeholder="Procurar no histórico: correia, óleo, pastilha, nº da OS...">
+      </div>
+      {% endif %}
       <div class="card-body p-0">
-        <div class="list-group list-group-flush">
-          {% for os in ordens %}
-          <a href="{% url 'ordens_servico:os_detalhe' os.pk %}" class="list-group-item list-group-item-action">
-            <div class="d-flex justify-content-between">
-              <span class="fw-semibold">{{ os }}</span>
-              <span class="badge bg-{{ os.status|status_badge }}">{{ os.get_status_display }}</span>
+        <div class="list-group list-group-flush" id="lista-historico">
+          {% for os in historico.ordens %}
+          <a href="{% url 'ordens_servico:os_detalhe' os.pk %}"
+             class="list-group-item list-group-item-action js-item-historico{% if os.status == 'cancelada' %} text-body-secondary{% endif %}"
+             data-busca="{{ os }} {{ os.defeito_relatado }} {{ os.mecanico|default:'' }}{% for item in os.itens_servico.all %} {{ item.descricao }}{% endfor %}{% for item in os.itens_peca.all %} {{ item.descricao }}{% endfor %}">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div>
+                <span class="fw-semibold">{{ os.data_abertura|date:"d/m/Y" }}</span>
+                <span class="text-muted small">· {{ os.km_entrada|floatformat:"0g" }} km · {{ os }}{% if os.mecanico %} · {{ os.mecanico }}{% endif %}</span>
+              </div>
+              <div class="text-nowrap">
+                <span class="badge bg-{{ os.status|status_badge }}">{{ os.get_status_display }}</span>
+                <span class="fw-semibold small ms-1">{{ os.total|currency }}</span>
+              </div>
             </div>
-            <small class="text-muted">{{ os.data_abertura|date:"d/m/Y" }} · KM {{ os.km_entrada }} · {{ os.total|currency }}</small>
+            <div class="small mt-1">
+              <div><span class="text-muted">Relatado:</span> {{ os.defeito_relatado|truncatechars:160 }}</div>
+              {% if os.itens_servico.all %}
+              <div><span class="text-muted">Serviços:</span>
+                {% for item in os.itens_servico.all %}{{ item.descricao }}{% if not forloop.last %} · {% endif %}{% endfor %}
+              </div>
+              {% endif %}
+              {% if os.itens_peca.all %}
+              <div><span class="text-muted">Peças:</span>
+                {% for item in os.itens_peca.all %}{{ item.descricao }} ({{ item.quantidade|floatformat:"-3" }}){% if not forloop.last %} · {% endif %}{% endfor %}
+              </div>
+              {% endif %}
+            </div>
           </a>
           {% empty %}
           <div class="list-group-item text-muted small">Nenhuma OS registrada para este veículo.</div>
           {% endfor %}
+          <div class="list-group-item text-muted small d-none" id="historico-sem-resultado">
+            Nenhuma visita encontrada para essa busca.
+          </div>
         </div>
       </div>
     </div>
@@ -123,4 +189,28 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const campo = document.getElementById('busca-historico');
+  if (!campo) return;
+  const normalizar = (texto) => texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const itens = Array.from(document.querySelectorAll('.js-item-historico')).map((el) => ({
+    el, texto: normalizar(el.dataset.busca || ''),
+  }));
+  const semResultado = document.getElementById('historico-sem-resultado');
+  campo.addEventListener('input', () => {
+    const termos = normalizar(campo.value).split(/\s+/).filter(Boolean);
+    let visiveis = 0;
+    itens.forEach(({ el, texto }) => {
+      const mostra = termos.every((termo) => texto.includes(termo));
+      el.classList.toggle('d-none', !mostra);
+      if (mostra) visiveis += 1;
+    });
+    semResultado.classList.toggle('d-none', visiveis > 0);
+  });
+})();
+</script>
 {% endblock %}

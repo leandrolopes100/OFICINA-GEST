@@ -7,6 +7,7 @@ urlpatterns = [
     path('', views.VeiculoListView.as_view(), name='list'),
     path('novo/', views.VeiculoCreateView.as_view(), name='create'),
     path('<int:pk>/', views.VeiculoDetailView.as_view(), name='detail'),
+    path('<int:pk>/historico/pdf/', views.VeiculoHistoricoPdfView.as_view(), name='historico_pdf'),
     path('<int:pk>/editar/', views.VeiculoUpdateView.as_view(), name='update'),
     path('<int:pk>/excluir/',  views.VeiculoDeleteView.as_view(),   name='delete'),
     path('<int:pk>/reativar/', views.VeiculoReativarView.as_view(), name='reativar'),

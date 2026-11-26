@@ -39,7 +39,7 @@ class AcompanhamentoPublicoView(View):
 
     def get(self, request, token):
         if excedeu_limite(request, 'acompanhamento', maximo=60, janela_segundos=60):
-            return muitas_requisicoes()
+            return muitas_requisicoes(request)
         ordem = _obter_ordem(token)
         oficina = identidade_oficina()
         whatsapp_oficina_url = _whatsapp_oficina(oficina, ordem)
@@ -63,7 +63,7 @@ class AcompanhamentoPublicoDocumentoView(View):
 
     def get(self, request, token):
         if excedeu_limite(request, 'acompanhamento', maximo=60, janela_segundos=60):
-            return muitas_requisicoes()
+            return muitas_requisicoes(request)
         ordem = _obter_ordem(token)
         oficina = identidade_oficina()
         whatsapp_oficina_url = _whatsapp_oficina(oficina, ordem)
@@ -82,7 +82,7 @@ class AcompanhamentoPublicoDocumentoView(View):
 class AcompanhamentoPublicoPdfView(View):
     def get(self, request, token):
         if excedeu_limite(request, 'acompanhamento-pdf', maximo=20, janela_segundos=60):
-            return muitas_requisicoes()
+            return muitas_requisicoes(request)
         from .pdf import gerar_pdf_os
         ordem = _obter_ordem(token)
         if not ordem.link_visivel_ao_cliente:

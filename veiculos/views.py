@@ -3,13 +3,16 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse_lazy, reverse
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.db.models import Q, Count
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, render, redirect
+from django.utils import timezone
+from django.utils.text import Truncator
 from .models import Veiculo, Marca, Modelo
 from .forms import VeiculoForm, MarcaForm, ModeloForm
 from core.utils import rate_limit_ajax
+from ordens_servico.models import OrdemServico
 
 
 class VeiculoListView(LoginRequiredMixin, ListView):
@@ -53,8 +56,17 @@ class VeiculoDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['orcamentos'] = self.object.orcamentos.order_by('-data_criacao')[:5]
-        ctx['ordens'] = self.object.ordens_servico.order_by('-data_abertura')[:10]
+        ctx['historico'] = OrdemServico.historico_do_veiculo(self.object)
         return ctx
+
+
+class VeiculoHistoricoPdfView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        from .pdf import gerar_pdf_historico_veiculo
+        veiculo = get_object_or_404(Veiculo.objects.select_related('cliente', 'marca', 'modelo'), pk=pk)
+        resposta = HttpResponse(gerar_pdf_historico_veiculo(veiculo), content_type='application/pdf')
+        resposta['Content-Disposition'] = f'inline; filename="historico-{veiculo.placa}.pdf"'
+        return resposta
 
 
 class VeiculoCreateView(LoginRequiredMixin, CreateView):
@@ -243,8 +255,22 @@ class ModeloDeleteView(LoginRequiredMixin, View):
 @login_required
 @rate_limit_ajax(max_calls=60, window=60)
 def veiculos_por_cliente_ajax(request, cliente_pk):
-    veiculos = Veiculo.objects.filter(cliente_id=cliente_pk, ativo=True)
-    data = [{'id': v.id, 'text': str(v)} for v in veiculos]
+    veiculos = Veiculo.objects.filter(cliente_id=cliente_pk, ativo=True).select_related('modelo')
+    ultimas = OrdemServico.ultimas_visitas(veiculos)
+    data = []
+    for veiculo in veiculos:
+        ordem = ultimas.get(veiculo.id)
+        data.append({
+            'id': veiculo.id,
+            'text': str(veiculo),
+            'ultima_visita': {
+                'data': timezone.localtime(ordem.data_abertura).strftime('%d/%m/%Y'),
+                'numero': ordem.numero,
+                'km': f'{ordem.km_entrada:,}'.replace(',', '.'),
+                'relatado': Truncator(ordem.defeito_relatado).chars(120),
+                'url': reverse('veiculos:detail', args=[veiculo.id]),
+            } if ordem else None,
+        })
     return JsonResponse({'results': data})
 
 

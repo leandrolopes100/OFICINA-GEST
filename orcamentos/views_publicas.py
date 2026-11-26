@@ -25,7 +25,7 @@ class OrcamentoPublicoView(View):
 
     def dispatch(self, request, *args, **kwargs):
         if excedeu_limite(request, 'orcamento', maximo=60, janela_segundos=60):
-            return muitas_requisicoes()
+            return muitas_requisicoes(request)
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, token):
@@ -33,7 +33,7 @@ class OrcamentoPublicoView(View):
 
     def post(self, request, token):
         if excedeu_limite(request, 'orcamento-resposta', maximo=10, janela_segundos=300):
-            return muitas_requisicoes()
+            return muitas_requisicoes(request)
         orcamento = _obter_orcamento(token)
         url_pagina = reverse('orcamento_publico:detalhe', kwargs={'token': token})
 
@@ -124,7 +124,7 @@ class OrcamentoPublicoView(View):
 class OrcamentoPublicoPdfView(View):
     def get(self, request, token):
         if excedeu_limite(request, 'orcamento-pdf', maximo=20, janela_segundos=60):
-            return muitas_requisicoes()
+            return muitas_requisicoes(request)
         from .pdf import gerar_pdf_orcamento
         orcamento = _obter_orcamento(token)
         if not orcamento.link_visivel_ao_cliente:

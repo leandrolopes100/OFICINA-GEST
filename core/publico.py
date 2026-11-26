@@ -2,7 +2,6 @@ import ipaddress
 
 from django.conf import settings
 from django.core.cache import cache
-from django.http import HttpResponse
 
 
 def ip_do_cliente(request):
@@ -35,8 +34,6 @@ def proteger(resposta):
     return resposta
 
 
-def muitas_requisicoes():
-    return proteger(HttpResponse(
-        'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.',
-        status=429, content_type='text/plain; charset=utf-8',
-    ))
+def muitas_requisicoes(request):
+    from .views_erro import pagina_de_erro
+    return pagina_de_erro(request, 429, 429)

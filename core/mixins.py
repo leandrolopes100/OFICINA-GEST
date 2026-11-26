@@ -9,5 +9,7 @@ class RoleRequiredMixin(LoginRequiredMixin):
         if not request.user.is_authenticated:
             return self.handle_no_permission()
         if self.allowed_roles and request.user.role not in self.allowed_roles:
-            raise PermissionDenied
+            negado = PermissionDenied()
+            negado.perfis_permitidos = list(self.allowed_roles)
+            raise negado
         return super().dispatch(request, *args, **kwargs)

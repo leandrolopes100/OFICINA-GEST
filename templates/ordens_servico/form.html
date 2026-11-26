@@ -37,6 +37,14 @@
   <div class="card-header"><i class="bi bi-info-circle"></i> Dados Gerais</div>
   <div class="card-body">
     {% crispy form %}
+    {% if not form.instance.pk %}
+    <div id="aviso-ultima-visita" class="alert alert-info py-2 mb-0 mt-2 small d-none" role="status">
+      <i class="bi bi-clock-history"></i>
+      <strong>Última visita:</strong> <span data-campo="resumo"></span>
+      <div class="text-muted" data-campo="relatado"></div>
+      <a data-campo="link" href="#" target="_blank" rel="noopener">Ver histórico do veículo</a>
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -382,13 +390,30 @@ function addRow(prefix) {
 document.getElementById('btn-add-srv').addEventListener('click',  () => addRow('srv'));
 document.getElementById('btn-add-peca').addEventListener('click', () => addRow('peca'));
 
+/* ── Aviso da última visita (só em OS nova) ── */
+let ultimasVisitas = {};
+function mostrarUltimaVisita(veiculoId) {
+  const aviso = document.getElementById('aviso-ultima-visita');
+  if (!aviso) return;
+  const visita = ultimasVisitas[veiculoId];
+  aviso.classList.toggle('d-none', !visita);
+  if (!visita) return;
+  aviso.querySelector('[data-campo="resumo"]').textContent =
+    `${visita.data} · OS nº ${visita.numero} · ${visita.km} km`;
+  aviso.querySelector('[data-campo="relatado"]').textContent = `Relatado: ${visita.relatado}`;
+  aviso.querySelector('[data-campo="link"]').href = visita.url;
+}
+
 /* ── Filtro veículo por cliente ── */
 function carregarVeiculos(clienteId, veiculoSelecionado) {
   const sel = document.getElementById('id_veiculo');
   if (!clienteId || !sel) return;
+  ultimasVisitas = {};
+  mostrarUltimaVisita('');
   fetch(`/veiculos/ajax/por-cliente/${clienteId}/`)
     .then(r => r.json())
     .then(({ results }) => {
+      results.forEach(v => { if (v.ultima_visita) ultimasVisitas[v.id] = v.ultima_visita; });
       /* Destrói o Select2 para limpar o cache interno antes de repopular */
       if ($(sel).data('select2')) $(sel).select2('destroy');
       /* Repopula o <select> nativo */
@@ -420,6 +445,9 @@ $(document).ready(function () {
   const veiculoAtual = '{{ form.instance.veiculo_id|default:"" }}' || '{{ veiculo_inicial|default:"" }}';
   $('#id_cliente').on('select2:select', function () {
     carregarVeiculos(this.value, null);
+  });
+  $('#id_veiculo').on('change', function () {
+    mostrarUltimaVisita(this.value);
   });
   const clienteInicial = document.getElementById('id_cliente')?.value;
   if (clienteInicial) carregarVeiculos(clienteInicial, veiculoAtual);

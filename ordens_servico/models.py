@@ -25,6 +25,14 @@ class ResultadoOS:
     itens_abaixo_do_custo: list = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class HistoricoVeiculo:
+    ordens: list
+    visitas: int
+    total_entregue: Decimal
+    ultima_visita: 'OrdemServico | None'
+
+
 class OrdemServico(models.Model):
     STATUS_CHOICES = [
         ('aberta', 'Aberta'),
@@ -195,6 +203,41 @@ class OrdemServico(models.Model):
     @property
     def pode_editar(self):
         return self.status in ('aberta', 'em_andamento', 'aguardando')
+
+    @classmethod
+    def historico_do_veiculo(cls, veiculo):
+        ordens = list(
+            cls.objects.filter(veiculo=veiculo)
+            .select_related('mecanico', 'cliente')
+            .prefetch_related(
+                models.Prefetch('itens_servico', queryset=ItemOSServico.objects.order_by('pk')),
+                models.Prefetch('itens_peca', queryset=ItemOSPeca.objects.order_by('pk')),
+            )
+            .order_by('-data_abertura', '-pk')
+        )
+        validas = [ordem for ordem in ordens if ordem.status != 'cancelada']
+        return HistoricoVeiculo(
+            ordens=ordens,
+            visitas=len(validas),
+            total_entregue=sum(
+                (ordem.total for ordem in validas if ordem.status == 'entregue'), Decimal('0')
+            ),
+            ultima_visita=validas[0] if validas else None,
+        )
+
+    @classmethod
+    def ultimas_visitas(cls, veiculos):
+        ultima = (
+            cls.objects.filter(veiculo=models.OuterRef('pk'))
+            .exclude(status='cancelada')
+            .order_by('-data_abertura', '-pk')
+            .values('pk')[:1]
+        )
+        ids = [
+            pk for pk in veiculos.annotate(ultima_os=models.Subquery(ultima))
+            .values_list('ultima_os', flat=True) if pk
+        ]
+        return {ordem.veiculo_id: ordem for ordem in cls.objects.filter(pk__in=ids)}
 
     def congelar_custos(self):
         itens = list(self.itens_peca.select_related('produto'))
